@@ -27,7 +27,7 @@ class TestPostprocessor(unittest.TestCase):
             print(e)
 
     def compile_postprocessed_file(self, flags=""):
-        self.exit_code = os.system(f"gcc tests/{self.filename}.c -o tests/{self.filename}_recompiled -w -M {flags}")
+        self.exit_code = os.system(f"gcc tests/{self.filename}.c -o tests/{self.filename}_recompiled -w {flags}")
 
     def test_hello_world(self):
         self.filename = "hello_world"

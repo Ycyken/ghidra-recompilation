@@ -1,4 +1,4 @@
-from src.PostProcessor import PostProcessor
+from src.Postprocessor import PostProcessor
 import sys
 
 if __name__ == "__main__":

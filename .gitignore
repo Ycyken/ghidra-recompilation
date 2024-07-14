@@ -1,0 +1,5 @@
+**/__pycache__
+.idea
+*_ghidra
+tests/**/*_ghidra
+venv

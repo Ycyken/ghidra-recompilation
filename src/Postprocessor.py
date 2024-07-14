@@ -69,6 +69,8 @@ class PostProcessor:
                 funcs_decompiled.append(func_decompiled)
 
             file = open(self.filepath + ".c", 'w')
+            file.write("#include <stdio.h>\n")
+            file.write("#include <stdlib.h>\n")
             for f in funcs_decompiled:
                 func_signature = f.getSignature()
                 for key in undefined_types.keys():

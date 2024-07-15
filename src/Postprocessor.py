@@ -29,6 +29,11 @@ utypes = {
     "ushort": "unsigned short"
 }
 
+libc = ["assert.h", "ctype.h", "complex.h", "errno.h", "fenv.h", "float.h", "inttypes.h",
+                      "iso646.h", "limits.h", "locale.h", "math.h", "setjmp.h", "signal.h", "stdarg.h",
+                      "stdbool.h", "stdint.h", "stddef.h", "stdio.h", "stdlib.h", "string.h", "tgmath.h",
+                      "threads.h", "time.h", "wchar.h", "wctype.h"]
+
 
 class PostProcessor:
     def __init__(self, filepath: str):
@@ -39,6 +44,7 @@ class PostProcessor:
         with pyhidra.open_program(self.filepath) as flat_api:
             program = flat_api.getCurrentProgram()
             listing = program.getListing()
+            dataTypeManager = program.getDataTypeManager()
 
             all_funcs = program.functionManager.getFunctionsNoStubs(True)
             funcs_filtered = []
@@ -69,8 +75,12 @@ class PostProcessor:
                 funcs_decompiled.append(func_decompiled)
 
             file = open(self.filepath + ".c", 'w')
-            file.write("#include <stdio.h>\n")
-            file.write("#include <stdlib.h>\n")
+
+            for categoryID in range(dataTypeManager.getCategoryCount()):
+                header = str(dataTypeManager.getCategory(categoryID)).split("/")[1]
+                if header in libc:
+                    file.write(f"#include<{header}>\n")
+
             for f in funcs_decompiled:
                 func_signature = f.getSignature()
                 for key in undefined_types.keys():

@@ -29,7 +29,7 @@ utypes = {
     "ushort": "unsigned short"
 }
 
-standart_functions = ["assert.h", "ctype.h", "complex.h", "errno.h", "fenv.h", "float.h", "inttypes.h",
+libc = ["assert.h", "ctype.h", "complex.h", "errno.h", "fenv.h", "float.h", "inttypes.h",
                       "iso646.h", "limits.h", "locale.h", "math.h", "setjmp.h", "signal.h", "stdarg.h",
                       "stdbool.h", "stdint.h", "stddef.h", "stdio.h", "stdlib.h", "string.h", "tgmath.h",
                       "threads.h", "time.h", "wchar.h", "wctype.h"]
@@ -78,7 +78,7 @@ class PostProcessor:
 
             for categoryID in range(dataTypeManager.getCategoryCount()):
                 header = str(dataTypeManager.getCategory(categoryID)).split("/")[1]
-                if header in standart_functions:
+                if header in libc:
                     file.write(f"#include<{header}>\n")
 
             for f in funcs_decompiled:

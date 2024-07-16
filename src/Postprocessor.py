@@ -25,7 +25,9 @@ static_linked_funcs = ["_init", "_start", "deregister_tm_clones", "register_tm_c
                        "__cxa_finalize"]
 
 utypes = {
+    "byte": "unsigned char",
     "ulong": "unsigned long",
+    "ulonglong": "unsigned long long",
     "uint": "unsigned int",
     "ushort": "unsigned short"
 }
@@ -35,6 +37,21 @@ libc = ["assert.h", "ctype.h", "complex.h", "errno.h", "fenv.h", "float.h", "int
                       "stdbool.h", "stdint.h", "stddef.h", "stdio.h", "stdlib.h", "string.h", "tgmath.h",
                       "threads.h", "time.h", "wchar.h", "wctype.h"]
 
+types_from_libc = {
+    "bool": "stdbool.h",
+    "complex8": "complex.h",
+    "complex16": "complex.h",
+    "complex32": "complex.h",
+    "doublecomplex": "complex.h",
+    "doublecomplex": "complex.h",
+    "floatcomplex": "complex.h",
+    "longdoublecomplex": "complex.h",
+    "wint_t": "wchar.h",
+    "wctrans_t": "wchar.h",
+    "wctype_t": "wchar.h",
+    "fenv_t": "fenv.h",
+    "fexcept_t": "fenv.h",
+}
 
 class PostProcessor:
     def __init__(self, filepath: str):
@@ -50,16 +67,40 @@ class PostProcessor:
             decompiled_funcs = self.get_decompiled_funcs(program, filtered_funcs)
 
             with open(self.filepath + ".c", "w") as file:
-                self.write_headers(file, program)
+                self.write_headers(file, program, decompiled_funcs)
                 self.write_funcs(file, filtered_funcs, decompiled_funcs)
         shutil.rmtree(self.filepath + "_ghidra")
 
-    def write_headers(self, file, program):
+    def get_headers_from_ghidra(self, headers, program):
         data_type_manager = program.getDataTypeManager()
         for categoryID in range(data_type_manager.getCategoryCount()):
             header = str(data_type_manager.getCategory(categoryID)).split("/")[1]
             if header in libc:
-                file.write(f"#include <{header}>\n")
+                headers.add(header)
+        return headers
+    
+    def get_headers_from_functions(self, headers, decompiled_funcs):
+        for func in decompiled_funcs:
+            variable_declarations = func.getC().split("{")[1].split(";")
+
+            declarationID = 0
+            variable_declaration = variable_declarations[declarationID].split()
+            while len(variable_declaration) == 2 and variable_declaration[0] not in ["return", "do"]:
+                headers.add(types_from_libc.get(variable_declaration[0]))
+                declarationID += 1
+                variable_declaration = variable_declarations[declarationID].split()
+
+        return headers
+        
+    def write_headers(self, file, program, decompiled_funcs):
+        headers = set()
+        headers = self.get_headers_from_ghidra(headers, program)
+        headers = self.get_headers_from_functions(headers, decompiled_funcs)
+
+        for header in headers:
+            if header == None:
+                continue
+            file.write(f"#include<{header}>\n")
         file.write("\n")
 
     def write_funcs(self, file, funcs, decompiled_funcs):

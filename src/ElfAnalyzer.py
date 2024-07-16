@@ -13,7 +13,7 @@ class ElfAnalyzer:
         return start_address <= func_address < end_address
 
     @staticmethod
-    def is_jump_outside_function(start_address: str, end_address: str, code_units: str):
+    def is_jump_outside_function(start_address: str, end_address: str, code_units):
         for code_unit in code_units:
             code_unit_string = str(code_unit)
             jmp_address = ""

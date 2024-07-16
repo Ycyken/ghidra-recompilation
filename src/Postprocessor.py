@@ -1,10 +1,10 @@
 import pyhidra
+from src.ElfAnalyzer import ElfAnalyzer
 
 pyhidra.start()
 
 from ghidra.app.decompiler import DecompInterface
 from ghidra.util.task import ConsoleTaskMonitor
-from src.ElfAnalyzer import ElfAnalyzer
 
 undefined_types = {
     "undefined1": "char",
@@ -43,58 +43,70 @@ class PostProcessor:
     def run(self):
         with pyhidra.open_program(self.filepath) as flat_api:
             program = flat_api.getCurrentProgram()
-            listing = program.getListing()
-            dataTypeManager = program.getDataTypeManager()
 
-            all_funcs = program.functionManager.getFunctionsNoStubs(True)
-            funcs_filtered = []
+            funcs = program.functionManager.getFunctionsNoStubs(True)
+            filtered_funcs = self.filter_funcs(funcs, program)
+            decompiled_funcs = self.get_decompiled_funcs(program, filtered_funcs)
 
-            for f in all_funcs:
-                if f.getName() in static_linked_funcs or f.isThunk():
-                    continue
+            with open(self.filepath + ".c", "w") as file:
+                self.write_headers(file, program)
+                self.write_funcs(file, filtered_funcs, decompiled_funcs)
 
-                f_addr = int(str(f.getEntryPoint()), 16)
-                if not self.elfAnalyzer.is_function_inside_section(f_addr, int(str(program.getImageBase()), 16),
-                                                                   ".text"):
-                    continue
 
-                addr_set = f.getBody()
-                code_units = listing.getCodeUnits(addr_set, True)
-                if self.elfAnalyzer.is_jump_outside_function(str(addr_set.getMinAddress()),
-                                                             str(addr_set.getMaxAddress()),
-                                                             code_units):
-                    continue
-                funcs_filtered.append(f)
+    def write_headers(self, file, program):
+        data_type_manager = program.getDataTypeManager()
+        for categoryID in range(data_type_manager.getCategoryCount()):
+            header = str(data_type_manager.getCategory(categoryID)).split("/")[1]
+            if header in libc:
+                file.write(f"#include <{header}>\n")
+        file.write("\n")
 
-            ifc = DecompInterface()
-            ifc.openProgram(program)
-            funcs_decompiled = []
-            for f in funcs_filtered:
-                result = ifc.decompileFunction(f, 0, ConsoleTaskMonitor())
-                func_decompiled = result.getDecompiledFunction()
-                funcs_decompiled.append(func_decompiled)
+    def write_funcs(self, file, funcs, decompiled_funcs):
+        for index, func in enumerate(decompiled_funcs):
+            if funcs[index].getName() == "main":
+                continue
+            func_signature = func.getSignature()
+            for key in undefined_types.keys():
+                func_signature = func_signature.replace(key, undefined_types[key])
+            for key in utypes.keys():
+                func_signature = func_signature.replace(key, utypes[key])
+            file.write(func_signature + "\n")
 
-            file = open(self.filepath + ".c", 'w')
+        for func in decompiled_funcs:
+            func_code = func.getC()
+            for key in undefined_types.keys():
+                func_code = func_code.replace(key, undefined_types[key])
+            for key in utypes.keys():
+                func_code = func_code.replace(key, utypes[key])
+            file.write(func_code)
 
-            for categoryID in range(dataTypeManager.getCategoryCount()):
-                header = str(dataTypeManager.getCategory(categoryID)).split("/")[1]
-                if header in libc:
-                    file.write(f"#include<{header}>\n")
+    def get_decompiled_funcs(self, program, funcs):
+        ifc = DecompInterface()
+        ifc.openProgram(program)
+        funcs_decompiled = []
+        for f in funcs:
+            result = ifc.decompileFunction(f, 0, ConsoleTaskMonitor())
+            func_decompiled = result.getDecompiledFunction()
+            funcs_decompiled.append(func_decompiled)
+        return funcs_decompiled
 
-            for f in funcs_decompiled:
-                func_signature = f.getSignature()
-                for key in undefined_types.keys():
-                    func_signature = func_signature.replace(key, undefined_types[key])
-                for key in utypes.keys():
-                    func_signature = func_signature.replace(key, utypes[key])
-                file.write(func_signature + "\n")
+    def filter_funcs(self, funcs, program):
+        filtered_funcs = []
+        listing = program.getListing()
+        for f in funcs:
+            if f.getName() in static_linked_funcs or f.isThunk():
+                continue
 
-            for f in funcs_decompiled:
-                func_code = f.getC()
-                for key in undefined_types.keys():
-                    func_code = func_code.replace(key, undefined_types[key])
-                for key in utypes.keys():
-                    func_code = func_code.replace(key, utypes[key])
-                file.write(func_code)
+            f_addr = int(str(f.getEntryPoint()), 16)
+            program_image_base = int(str(program.getImageBase()), 16)
+            if not self.elfAnalyzer.is_function_inside_section(f_addr, program_image_base, ".text"):
+                continue
 
-            file.close()
+            addr_set = f.getBody()
+            code_units = listing.getCodeUnits(addr_set, True)
+            if self.elfAnalyzer.is_jump_outside_function(str(addr_set.getMinAddress()),
+                                                         str(addr_set.getMaxAddress()),
+                                                         code_units):
+                continue
+            filtered_funcs.append(f)
+        return filtered_funcs

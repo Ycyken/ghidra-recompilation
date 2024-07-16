@@ -21,10 +21,6 @@ class TestPostprocessor(unittest.TestCase):
             os.remove(f"tests/{self.filename}_recompiled")
         except OSError as e:
             print(e)
-        try:
-            shutil.rmtree(f"tests/{self.filename}_ghidra")
-        except OSError as e:
-            print(e)
 
     def compile_postprocessed_file(self, flags=""):
         self.exit_code = os.system(f"gcc tests/{self.filename}.c -o tests/{self.filename}_recompiled -w {flags}")

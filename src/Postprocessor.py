@@ -1,4 +1,5 @@
 import pyhidra
+import shutil
 from src.ElfAnalyzer import ElfAnalyzer
 
 pyhidra.start()
@@ -51,7 +52,7 @@ class PostProcessor:
             with open(self.filepath + ".c", "w") as file:
                 self.write_headers(file, program)
                 self.write_funcs(file, filtered_funcs, decompiled_funcs)
-
+        shutil.rmtree(self.filepath + "_ghidra")
 
     def write_headers(self, file, program):
         data_type_manager = program.getDataTypeManager()

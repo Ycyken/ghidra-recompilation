@@ -138,24 +138,31 @@ class PostProcessor:
         data = listing.getDataAt(addr)
         type = data.getDataType().getName()
         value = data.getValue()
-        if value is None:
-            return None
         if self.is_symbol_float(symbol, program):
             type = float_types[type]
-            if type == "float":
+            if value is None:
+                value = 0
+            elif type == "float":
                 value = flat_api.getFloat(addr)
             else:
                 value = flat_api.getDouble(addr)
-            return type, value
-        match type:
-            case "pointer":
-                type = "void *"
+        elif type == "pointer":
+            type = "void *"
+            if value is None:
+                value = 0
+            else:
                 value = int(str(value), 16)
-            case "string":
-                type = "char *"
+        elif type == "string":
+            type = "char *"
+            if value is None:
+                value = 0
+            else:
                 value = '\"' + value + '\"'
-            case _:
-                type = integer_types[type]
+        else:
+            type = integer_types[type]
+            if value is None:
+                value = 0
+            else:
                 value = int(str(value), 16)
         return type, str(value)
 

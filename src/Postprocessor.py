@@ -66,6 +66,7 @@ floating_point_instructions = ["MOVSS", "MOVSD", "ADDSS", "ADDSD", "SUBSS", "SUB
                                "CMPLTSS", "CMPLTSD", "CMPLESS", "CMPLESD", "CMPNESS", "CMPNESD", "CMPUNORDSS",
                                "CMPUNORDSD", "CMPNLTSS", "CMPNLTSD", "CMPNLESS", "CMPNLESD", "CMPORDSS", "CMPORDSD"]
 
+stack_protectors = ["__stack_chk_fail", "___stack_chk_guard", "in_FS_OFFSET"]
 
 class PostProcessor:
     def __init__(self, filepath: str):
@@ -203,6 +204,24 @@ class PostProcessor:
                 variable_declaration = variable_declarations[declarationID].split()
 
         return headers
+    
+    def get_code_without_stack_protection(self, func_code):
+        lines = func_code.split("\n")
+        need_to_delete_brace = False
+
+        for id, line in enumerate(lines):
+            for protector in stack_protectors:
+                if protector in line:
+                    if line.strip()[-1] == "{":
+                        need_to_delete_brace = True
+                    lines[id] = ""
+                    continue
+
+                elif "}" in line and need_to_delete_brace:
+                    lines[id] = ""
+                    need_to_delete_brace = False
+
+        return  "\n".join(lines)
 
     def write_headers(self, file, program, decompiled_funcs):
         headers = set()
@@ -228,6 +247,9 @@ class PostProcessor:
 
         for func in decompiled_funcs:
             func_code = func.getC()
+            for protector in stack_protectors:
+                if protector in func_code:
+                    func_code = self.get_code_without_stack_protection(func_code)
             for key in integer_types.keys():
                 func_code = func_code.replace(key, integer_types[key])
             for key in utypes.keys():

@@ -215,12 +215,10 @@ class PostProcessor:
                     if line.strip()[-1] == "{":
                         need_to_delete_brace = True
                     lines[id] = ""
-                    lines[id - 1] = lines[id - 1].rstrip()
                     continue
 
                 elif "}" in line and need_to_delete_brace:
                     lines[id] = ""
-                    lines[id - 1] = lines[id - 1].rstrip()
                     need_to_delete_brace = False
 
         return  "\n".join(lines)

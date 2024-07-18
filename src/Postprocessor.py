@@ -203,6 +203,24 @@ class PostProcessor:
                 variable_declaration = variable_declarations[declarationID].split()
 
         return headers
+    
+    def get_code_without_stack_protection(self, func_code):
+        strings_of_code = func_code.split("\n")
+        stack_protectors = ["__stack_chk_fail", "___stack_chk_guard", "in_FS_OFFSET"]
+        need_to_delete_brace = False
+        for id, string in enumerate(strings_of_code):
+            for protector in stack_protectors:
+                if protector in string:
+                    if string.strip()[-1] == "{":
+                        need_to_delete_brace = True
+                    strings_of_code[id] = ""
+                    strings_of_code[id - 1] = strings_of_code[id - 1].rstrip()
+                    continue
+                elif "}" in string and need_to_delete_brace:
+                    strings_of_code[id] = ""
+                    strings_of_code[id - 1] = strings_of_code[id - 1].rstrip()
+                    need_to_delete_brace = False
+        return  "\n".join(strings_of_code)
 
     def write_headers(self, file, program, decompiled_funcs):
         headers = set()
@@ -228,6 +246,8 @@ class PostProcessor:
 
         for func in decompiled_funcs:
             func_code = func.getC()
+            if "__stack_chk_fail" in func_code or "___stack_chk_guard" in func_code or "in_FS_OFFSET" in func_code:
+                func_code = self.get_code_without_stack_protection(func_code)
             for key in integer_types.keys():
                 func_code = func_code.replace(key, integer_types[key])
             for key in utypes.keys():

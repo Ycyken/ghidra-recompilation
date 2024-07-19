@@ -222,6 +222,24 @@ class PostProcessor:
                     need_to_delete_brace = False
 
         return  "\n".join(lines)
+    
+    def is_libc_start_main_in_function(self, f):
+        for function in f.getCalledFunctions(ConsoleTaskMonitor()):
+            if "__libc_start_main" in str(function):
+                return True
+        return False
+    
+    def is_function_starts_with_endbr(self, code_units):
+        for id, code_unit in enumerate(code_units):
+            if str(code_unit) == "ENDBR64" and id == 0:
+                return True
+            return False
+    
+    def is_hlt_in_function(self, code_units):
+        for code_unit in code_units:
+            if str(code_unit) == "HLT":
+                return True
+        return False
 
     def write_headers(self, file, program, decompiled_funcs):
         headers = set()
@@ -278,8 +296,18 @@ class PostProcessor:
             if not self.elfAnalyzer.is_function_inside_section(f_addr, program_image_base, ".text"):
                 continue
 
+            if self.is_libc_start_main_in_function(f):
+                continue
+                
             addr_set = f.getBody()
             code_units = listing.getCodeUnits(addr_set, True)
+
+            if not self.is_function_starts_with_endbr(code_units):
+                continue
+
+            if self.is_hlt_in_function(code_units):
+                continue
+
             if self.elfAnalyzer.is_jump_outside_function(str(addr_set.getMinAddress()),
                                                          str(addr_set.getMaxAddress()),
                                                          code_units):

@@ -68,6 +68,7 @@ floating_point_instructions = ["MOVSS", "MOVSD", "ADDSS", "ADDSD", "SUBSS", "SUB
 
 stack_protectors = ["__stack_chk_fail", "___stack_chk_guard", "in_FS_OFFSET"]
 
+
 class PostProcessor:
     def __init__(self, filepath: str):
         self.filepath = filepath
@@ -204,7 +205,7 @@ class PostProcessor:
                 variable_declaration = variable_declarations[declarationID].split()
 
         return headers
-    
+
     def get_code_without_stack_protection(self, func_code):
         lines = func_code.split("\n")
         need_to_delete_brace = False
@@ -221,7 +222,7 @@ class PostProcessor:
                     lines[id] = ""
                     need_to_delete_brace = False
 
-        return  "\n".join(lines)
+        return "\n".join(lines)
 
     def write_headers(self, file, program, decompiled_funcs):
         headers = set()

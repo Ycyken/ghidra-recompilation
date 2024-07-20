@@ -1,10 +1,12 @@
 import pyhidra
 import shutil
 from src.ElfAnalyzer import ElfAnalyzer
+from src.FunctionAnalyzer import FunctionAnalyzer
 
 pyhidra.start()
 
 from ghidra.app.decompiler import DecompInterface
+from ghidra.app.decompiler import DecompileOptions
 from ghidra.util.task import ConsoleTaskMonitor
 from ghidra.program.model.address import AddressRangeImpl
 
@@ -228,20 +230,6 @@ class PostProcessor:
             if "__libc_start_main" in str(function):
                 return True
         return False
-    
-    def is_function_starts_with_endbr(self, addr_set, listing):
-        code_units = listing.getCodeUnits(addr_set, True)
-        for id, code_unit in enumerate(code_units):
-            if str(code_unit) == "ENDBR64" and id == 0:
-                return True
-            return False
-    
-    def is_hlt_in_function(self, addr_set, listing):
-        code_units = listing.getCodeUnits(addr_set, False)
-        for code_unit in code_units:
-            if str(code_unit) == "HLT":
-                return True
-        return False
 
     def write_headers(self, file, program, decompiled_funcs):
         headers = set()
@@ -278,6 +266,9 @@ class PostProcessor:
 
     def get_decompiled_funcs(self, program, funcs):
         ifc = DecompInterface()
+        options = DecompileOptions()
+        options.setSimplifyDoublePrecision(True)
+        ifc.setOptions(options)
         ifc.openProgram(program)
         funcs_decompiled = []
         for f in funcs:
@@ -302,13 +293,9 @@ class PostProcessor:
                 continue
                 
             addr_set = f.getBody()
-            if not self.is_function_starts_with_endbr(addr_set, listing):
+            self.functionAnalyzer = FunctionAnalyzer(addr_set, listing)
+            if self.functionAnalyzer.is_function_incorrect():
                 continue
 
-            if self.is_hlt_in_function(addr_set, listing):
-                continue
-
-            if self.elfAnalyzer.is_jump_outside_function(addr_set, listing):
-                continue
             filtered_funcs.append(f)
         return filtered_funcs

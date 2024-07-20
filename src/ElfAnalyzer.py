@@ -17,22 +17,17 @@ class ElfAnalyzer:
         return start_address <= func_address < end_address
 
     @staticmethod
-    def is_jump_outside_function(start_address: str, end_address: str, code_units):
+    def is_jump_outside_function(addr_set, listing):
+        start_address = int(str(addr_set.getMinAddress()), 16)
+        end_address = int(str(addr_set.getMaxAddress()), 16)
+        code_units = listing.getCodeUnits(addr_set, False)
+        
         for code_unit in code_units:
-            code_unit_string = str(code_unit)
-            jmp_address = ""
-            length_of_code_unit_string = len(code_unit_string)
-            if length_of_code_unit_string < 3 or code_unit_string[:3] != "JMP":
+            if str(code_unit.getMnemonicString()) != "JMP":
                 continue
 
-            for i in range(length_of_code_unit_string):
-                if code_unit_string[i].isdigit() and i < (length_of_code_unit_string - 9):
-                    jmp_address += code_unit_string[i]
-                    for j in range(i + 1, i + 10):
-                        jmp_address += code_unit_string[j]
-                    break
+            destination_address = int(str(code_unit.getPrimaryReference(0).getToAddress()), 16)
 
-            if (len(jmp_address) > 0 and (
-                    int(start_address, 16) > int(jmp_address, 16) or int(jmp_address, 16) > int(end_address, 16))):
+            if start_address > destination_address or destination_address > end_address:
                 return True
         return False

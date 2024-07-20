@@ -282,17 +282,13 @@ class PostProcessor:
                 continue
                 
             addr_set = f.getBody()
-            code_units = listing.getCodeUnits(addr_set, True)
-
-            if not self.is_function_starts_with_endbr(code_units):
+            if not self.is_function_starts_with_endbr(addr_set, listing):
                 continue
 
-            if self.is_hlt_in_function(code_units):
+            if self.is_hlt_in_function(addr_set, listing):
                 continue
 
-            if self.elfAnalyzer.is_jump_outside_function(str(addr_set.getMinAddress()),
-                                                         str(addr_set.getMaxAddress()),
-                                                         code_units):
+            if self.elfAnalyzer.is_jump_outside_function(addr_set, listing):
                 continue
             filtered_funcs.append(f)
         return filtered_funcs

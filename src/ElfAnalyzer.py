@@ -15,19 +15,3 @@ class ElfAnalyzer:
     def is_function_inside_section(self, func_address: int, image_base: int, section_name: str) -> bool:
         start_address, end_address = tuple(map (lambda x : x + image_base, self.get_section_addresses(section_name)))
         return start_address <= func_address < end_address
-
-    @staticmethod
-    def is_jump_outside_function(addr_set, listing):
-        start_address = int(str(addr_set.getMinAddress()), 16)
-        end_address = int(str(addr_set.getMaxAddress()), 16)
-        code_units = listing.getCodeUnits(addr_set, False)
-        
-        for code_unit in code_units:
-            if str(code_unit.getMnemonicString()) != "JMP":
-                continue
-
-            destination_address = int(str(code_unit.getPrimaryReference(0).getToAddress()), 16)
-
-            if start_address > destination_address or destination_address > end_address:
-                return True
-        return False

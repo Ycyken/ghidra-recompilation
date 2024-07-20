@@ -1,10 +1,12 @@
 import pyhidra
 import shutil
 from src.ElfAnalyzer import ElfAnalyzer
+from src.FunctionAnalyzer import FunctionAnalyzer
 
 pyhidra.start()
 
 from ghidra.app.decompiler import DecompInterface
+from ghidra.app.decompiler import DecompileOptions
 from ghidra.util.task import ConsoleTaskMonitor
 from ghidra.program.model.address import AddressRangeImpl
 
@@ -258,6 +260,9 @@ class PostProcessor:
 
     def get_decompiled_funcs(self, program, funcs):
         ifc = DecompInterface()
+        options = DecompileOptions()
+        options.setSimplifyDoublePrecision(True)
+        ifc.setOptions(options)
         ifc.openProgram(program)
         funcs_decompiled = []
         for f in funcs:
@@ -282,13 +287,9 @@ class PostProcessor:
                 continue
                 
             addr_set = f.getBody()
-            if not self.is_function_starts_with_endbr(addr_set, listing):
+            self.functionAnalyzer = FunctionAnalyzer(addr_set, listing)
+            if self.functionAnalyzer.is_function_incorrect():
                 continue
 
-            if self.is_hlt_in_function(addr_set, listing):
-                continue
-
-            if self.elfAnalyzer.is_jump_outside_function(addr_set, listing):
-                continue
             filtered_funcs.append(f)
         return filtered_funcs

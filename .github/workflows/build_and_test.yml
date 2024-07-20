@@ -14,12 +14,22 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: 3.12
-      - name: Set environment variable
-        run: echo "GHIDRA_INSTALL_DIR=${PWD}/ghidra_11.1.2_PUBLIC" >> $GITHUB_ENV
-      - name: Install dependencies
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'adopt'
+          java-version: '21'
+
+      - name: Setting up Ghidra
+        uses: antoniovazquezblanco/setup-ghidra@v2.0.4
+        with:
+          version: '11.1.2'
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
       - name: Test
         run: python3 -m unittest discover tests
-

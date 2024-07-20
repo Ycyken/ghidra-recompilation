@@ -2,4 +2,6 @@
 .idea
 *_ghidra
 tests/**/*_ghidra
+
 venv
+.venv

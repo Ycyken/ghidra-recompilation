@@ -1,7 +1,7 @@
 import pyhidra
 import shutil
 from src.ElfAnalyzer import ElfAnalyzer
-from src.FunctionAnalyzer import FunctionAnalyzer
+from src.AssemblyAnalyzer import AssemblyAnalyzer
 
 pyhidra.start()
 
@@ -283,13 +283,17 @@ class PostProcessor:
             if not self.elfAnalyzer.is_function_inside_section(f_addr, program_image_base, ".text"):
                 continue
 
-            if self.is_libc_start_main_in_function(f):
-                continue
-                
             addr_set = f.getBody()
-            self.functionAnalyzer = FunctionAnalyzer(addr_set, listing)
-            if self.functionAnalyzer.is_function_incorrect():
+            self.assemblyAnalyzer = AssemblyAnalyzer(addr_set, listing)
+            if self.assemblyAnalyzer.is_function_incorrect():
                 continue
 
             filtered_funcs.append(f)
+        
+        for f in filtered_funcs:
+            for function in f.getCalledFunctions(ConsoleTaskMonitor()):
+                if (("EXTERNAL" not in str(function)) and (function not in filtered_funcs)) or "__libc_start_main" in str(function):
+                    filtered_funcs.remove(f)
+                    break
+
         return filtered_funcs

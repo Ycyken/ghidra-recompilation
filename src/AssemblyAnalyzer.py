@@ -1,4 +1,4 @@
-class FunctionAnalyzer:
+class AssemblyAnalyzer:
    def __init__(self, addr_set, listing):
       self.code_units = listing.getCodeUnits(addr_set, True)
       self.start_address = int(str(addr_set.getMinAddress()), 16)

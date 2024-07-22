@@ -53,7 +53,6 @@ types_from_libc = {
     "complex16": "complex.h",
     "complex32": "complex.h",
     "doublecomplex": "complex.h",
-    "doublecomplex": "complex.h",
     "floatcomplex": "complex.h",
     "longdoublecomplex": "complex.h",
     "wint_t": "wchar.h",
@@ -75,28 +74,29 @@ stack_protectors = ["__stack_chk_fail", "___stack_chk_guard", "in_FS_OFFSET"]
 class PostProcessor:
     def __init__(self, filepath: str):
         self.filepath = filepath
-        self.elfAnalyzer = ElfAnalyzer(filepath)
 
     def run(self):
-        with pyhidra.open_program(self.filepath) as flat_api:
+        with pyhidra.open_program(self.filepath) as flat_api, ElfAnalyzer(self.filepath) as elfAnalyzer:
             program = flat_api.getCurrentProgram()
+            self.elfAnalyzer = elfAnalyzer
+            self.flat_api = flat_api
+            self.program = program
 
             funcs = program.functionManager.getFunctionsNoStubs(True)
-            filtered_funcs = self.filter_funcs(funcs, program)
-            decompiled_funcs = self.get_decompiled_funcs(program, filtered_funcs)
-
+            filtered_funcs = self.filter_funcs(funcs)
+            decompiled_funcs = self.get_decompiled_funcs(filtered_funcs)
             with open(self.filepath + ".c", "w") as file:
-                self.write_headers(file, program, decompiled_funcs)
-                self.write_global_variables(file, flat_api)
+                self.write_headers(file, decompiled_funcs)
+                self.write_global_variables(file)
                 self.write_funcs(file, filtered_funcs, decompiled_funcs)
         shutil.rmtree(self.filepath + "_ghidra")
 
-    def write_global_variables(self, file, flat_api):
+    def write_global_variables(self, file):
         sections = (".bss", ".data", ".rodata")
         for section_name in sections:
-            symbols = self.get_symbols_from_section(flat_api, section_name)
+            symbols = self.get_symbols_from_section(section_name)
             for symbol in symbols:
-                result = self.get_symbol_type_and_value(symbol, flat_api)
+                result = self.get_symbol_type_and_value(symbol)
                 if result is None:
                     continue
 
@@ -120,13 +120,12 @@ class PostProcessor:
                 correct_name += "_"
         return correct_name
 
-    def get_symbols_from_section(self, flat_api, section_name: str):
-        program = flat_api.getCurrentProgram()
-        block = program.getMemory().getBlock(section_name)
+    def get_symbols_from_section(self, section_name: str):
+        block = self.program.getMemory().getBlock(section_name)
         start_addr = block.getStart()
         end_addr = block.getEnd()
         addr_range = AddressRangeImpl(start_addr, end_addr)
-        symbol_table = program.getSymbolTable()
+        symbol_table = self.program.getSymbolTable()
 
         symbols_in_section = []
         for addr in addr_range.iterator():
@@ -135,29 +134,27 @@ class PostProcessor:
                 symbols_in_section.append(symbol_table.getSymbols(addr)[0])
         return symbols_in_section
 
-    def get_symbol_type_and_value(self, symbol, flat_api) -> (str, str):
+    def get_symbol_type_and_value(self, symbol) -> (str, str):
         """
         Find the data corresponding to this symbol and return its type and value.
         :param symbol:
-        :param flat_api:
         :return: (type, value) or None if there is no data for this symbol
         """
-        program = flat_api.getCurrentProgram()
-        listing = program.getListing()
         addr = symbol.getAddress()
+        listing = self.program.getListing()
         data = listing.getDataAt(addr)
         if data is None:
             return None
         type = data.getDataType().getName().lower()
         value = data.getValue()
-        if self.is_symbol_float(symbol, program):
+        if self.is_symbol_float(symbol):
             type = float_types[type]
             if value is None:
                 value = "0"
             elif type == "float":
-                value = flat_api.getFloat(addr)
+                value = self.flat_api.getFloat(addr)
             else:
-                value = flat_api.getDouble(addr)
+                value = self.flat_api.getDouble(addr)
         elif type == "pointer":
             type = "void *"
             if value is None:
@@ -178,8 +175,8 @@ class PostProcessor:
                 value = int(str(value), 16)
         return type, str(value)
 
-    def is_symbol_float(self, symbol, program) -> bool:
-        listing = program.getListing()
+    def is_symbol_float(self, symbol) -> bool:
+        listing = self.program.getListing()
         addr = symbol.getAddress()
         data = listing.getDataAt(addr)
         if data is None:
@@ -200,8 +197,8 @@ class PostProcessor:
                 return True
         return False
 
-    def get_headers_from_ghidra(self, headers, program):
-        data_type_manager = program.getDataTypeManager()
+    def get_headers_from_ghidra(self, headers):
+        data_type_manager = self.program.getDataTypeManager()
         for categoryID in range(data_type_manager.getCategoryCount()):
             header = str(data_type_manager.getCategory(categoryID)).split("/")[1]
             if header in libc:
@@ -238,9 +235,9 @@ class PostProcessor:
                     need_to_delete_brace = False
         return "\n".join(lines)
 
-    def write_headers(self, file, program, decompiled_funcs):
+    def write_headers(self, file, decompiled_funcs):
         headers = set()
-        headers = self.get_headers_from_ghidra(headers, program)
+        headers = self.get_headers_from_ghidra(headers)
         headers = self.get_headers_from_functions(headers, decompiled_funcs)
 
         for header in headers:
@@ -271,12 +268,12 @@ class PostProcessor:
                 func_code = func_code.replace(key, utypes[key])
             file.write(func_code)
 
-    def get_decompiled_funcs(self, program, funcs):
+    def get_decompiled_funcs(self, funcs):
         ifc = DecompInterface()
         options = DecompileOptions()
         options.setSimplifyDoublePrecision(True)
         ifc.setOptions(options)
-        ifc.openProgram(program)
+        ifc.openProgram(self.program)
         funcs_decompiled = []
         for f in funcs:
             result = ifc.decompileFunction(f, 0, ConsoleTaskMonitor())
@@ -284,21 +281,20 @@ class PostProcessor:
             funcs_decompiled.append(func_decompiled)
         return funcs_decompiled
 
-    def filter_funcs(self, funcs, program):
+    def filter_funcs(self, funcs):
         filtered_funcs = []
-        listing = program.getListing()
         for f in funcs:
             if f.getName() in static_linked_funcs or f.isThunk():
                 continue
 
             f_addr = int(str(f.getEntryPoint()), 16)
-            program_image_base = int(str(program.getImageBase()), 16)
+            program_image_base = int(str(self.program.getImageBase()), 16)
             if not self.elfAnalyzer.is_function_inside_section(f_addr, program_image_base, ".text"):
                 continue
 
             addr_set = f.getBody()
-            self.assemblyAnalyzer = AssemblyAnalyzer(addr_set, listing)
-            if self.assemblyAnalyzer.is_function_nonuser():
+            assemblyAnalyzer = AssemblyAnalyzer(addr_set, self.program.getListing())
+            if assemblyAnalyzer.is_function_nonuser():
                 continue
 
             filtered_funcs.append(f)

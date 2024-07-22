@@ -131,22 +131,29 @@ class PostProcessor:
         symbols_in_section = []
         for addr in addr_range.iterator():
             symbols_at_addr = symbol_table.getSymbols(addr)
-            if len(symbols_at_addr) == 0:
-                continue
-            symbols_in_section.append(symbol_table.getSymbols(addr)[0])
+            if len(symbols_at_addr) >= 1:
+                symbols_in_section.append(symbol_table.getSymbols(addr)[0])
         return symbols_in_section
 
     def get_symbol_type_and_value(self, symbol, flat_api) -> (str, str):
+        """
+        Find the data corresponding to this symbol and return its type and value.
+        :param symbol:
+        :param flat_api:
+        :return: (type, value) or None if there is no data for this symbol
+        """
         program = flat_api.getCurrentProgram()
         listing = program.getListing()
         addr = symbol.getAddress()
         data = listing.getDataAt(addr)
-        type = data.getDataType().getName()
+        if data is None:
+            return None
+        type = data.getDataType().getName().lower()
         value = data.getValue()
         if self.is_symbol_float(symbol, program):
             type = float_types[type]
             if value is None:
-                value = 0
+                value = "0"
             elif type == "float":
                 value = flat_api.getFloat(addr)
             else:
@@ -154,19 +161,19 @@ class PostProcessor:
         elif type == "pointer":
             type = "void *"
             if value is None:
-                value = 0
+                value = "NULL"
             else:
                 value = int(str(value), 16)
         elif type == "string":
             type = "char *"
             if value is None:
-                value = 0
+                value = "NULL"
             else:
                 value = '\"' + value + '\"'
         else:
             type = integer_types[type]
             if value is None:
-                value = 0
+                value = "0"
             else:
                 value = int(str(value), 16)
         return type, str(value)
@@ -175,9 +182,14 @@ class PostProcessor:
         listing = program.getListing()
         addr = symbol.getAddress()
         data = listing.getDataAt(addr)
-        type = data.getDataType().getName()
-        if not ("undefined" in type or "float" in type or "double" in type):
+        if data is None:
             return False
+        type = data.getDataType().getName()
+        if "float" in type or "double" in type.lower():
+            return True
+        if not ("undefined" in type.lower()):
+            return False
+
         for reference in symbol.getReferences():
             addr = reference.getFromAddress()
             code_unit = listing.getCodeUnitContaining(addr)
@@ -290,10 +302,11 @@ class PostProcessor:
                 continue
 
             filtered_funcs.append(f)
-        
+
         for f in filtered_funcs:
             for function in f.getCalledFunctions(ConsoleTaskMonitor()):
-                if (("EXTERNAL" not in str(function)) and (function not in filtered_funcs)) or "__libc_start_main" in str(function):
+                if (("EXTERNAL" not in str(function)) and (
+                        function not in filtered_funcs)) or "__libc_start_main" in str(function):
                     filtered_funcs.remove(f)
                     break
 

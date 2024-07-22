@@ -9,6 +9,7 @@ from ghidra.app.decompiler import DecompInterface
 from ghidra.app.decompiler import DecompileOptions
 from ghidra.util.task import ConsoleTaskMonitor
 from ghidra.program.model.address import AddressRangeImpl
+from ghidra.program.model.symbol import SourceType
 
 integer_types = {
     "undefined1": "char",
@@ -285,7 +286,7 @@ class PostProcessor:
 
             addr_set = f.getBody()
             self.assemblyAnalyzer = AssemblyAnalyzer(addr_set, listing)
-            if self.assemblyAnalyzer.is_function_incorrect():
+            if self.assemblyAnalyzer.is_function_nonuser():
                 continue
 
             filtered_funcs.append(f)
@@ -294,6 +295,12 @@ class PostProcessor:
             for function in f.getCalledFunctions(ConsoleTaskMonitor()):
                 if (("EXTERNAL" not in str(function)) and (function not in filtered_funcs)) or "__libc_start_main" in str(function):
                     filtered_funcs.remove(f)
+                    break
+
+        for f in filtered_funcs:
+            for function in f.getCallingFunctions(ConsoleTaskMonitor()):
+                if function not in filtered_funcs:
+                    f.setName("main", SourceType.USER_DEFINED)
                     break
 
         return filtered_funcs

@@ -20,10 +20,10 @@ static_linked_funcs = ["_init", "_start", "deregister_tm_clones", "register_tm_c
                        "_ITM_deregisterTMCloneTable", "_ITM_registerTMCloneTable", "__gmon_start__",
                        "__cxa_finalize"]
 
-libc = ["assert.h", "ctype.h", "complex.h", "errno.h", "fenv.h", "float.h", "inttypes.h",
+libc = {"assert.h", "ctype.h", "complex.h", "errno.h", "fenv.h", "float.h", "inttypes.h",
         "iso646.h", "limits.h", "locale.h", "math.h", "setjmp.h", "signal.h", "stdarg.h",
         "stdbool.h", "stdint.h", "stddef.h", "stdio.h", "stdlib.h", "string.h", "tgmath.h",
-        "threads.h", "time.h", "wchar.h", "wctype.h"]
+        "threads.h", "time.h", "wchar.h", "wctype.h"}
 
 types_from_libc = {
     "bool": "stdbool.h",
@@ -207,7 +207,10 @@ class PostProcessor:
     def get_headers_from_ghidra(self):
         data_type_manager = self.program.getDataTypeManager()
         for categoryID in range(data_type_manager.getCategoryCount()):
-            header = str(data_type_manager.getCategory(categoryID)).split("/")[1]
+            category = data_type_manager.getCategory(categoryID)
+            if category is None:
+                continue
+            header = str(category).split("/")[-1]
             if header in libc:
                 self.headers.add(header)
         return self.headers

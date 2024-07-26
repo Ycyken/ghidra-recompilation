@@ -51,10 +51,10 @@ class TypeAnalyzer:
         data = self.listing.getDataAt(addr)
         if data is None:
             return None
-        display_type = data.getDataType().getDisplayName().lower()
+        display_type = data.getDataType().getDisplayName()
         value = data.getValue()
 
-        data_type_default = data.getDataType().getName().lower()
+        data_type_default = data.getDataType().getName()
         if (display_type != data_type_default):
             logger.warning(
                 f"Datatype name and displayName are different: {data_type_default} and {display_type}")
@@ -86,12 +86,13 @@ class TypeAnalyzer:
                 value = '\"' + value + '\"'
             else:
                 value = int(str(value), 16)
-        elif "bool" in display_type:
+        elif "bool" in display_type.lower():
             display_type = "bool"
             if value is None:
                 value = "false"
         else:
             display_type = integer_types.get(display_type, display_type)
+            display_type = utypes.get(display_type, display_type)
             if value is None:
                 value = "0"
             else:

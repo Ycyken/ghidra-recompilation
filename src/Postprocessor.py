@@ -302,7 +302,7 @@ class PostProcessor:
             variable_declarations = func_code.split("{")[1].split(";")
 
             declarationID = 0
-            variable_declaration = variable_declarations[declarationID].split()
+            variable_declaration = variable_declarations[declarationID][:variable_declarations[declarationID].find(" [")].split()
             while len(variable_declaration) == 2 and variable_declaration[0] not in ["return", "do"]:
                 self.headers.add(types_from_libc.get(variable_declaration[0]))
                 declarationID += 1
@@ -317,7 +317,7 @@ class PostProcessor:
         for header in self.headers:
             if header is None:
                 continue
-            file.write(f"#include<{header}>\n")
+            file.write(f"#include <{header}>\n")
         file.write("\n")
 
     def write_funcs(self, file, funcs, decompiled_funcs):
@@ -334,7 +334,7 @@ class PostProcessor:
         for func in decompiled_funcs:
             func_code = func.getC()
             if "WARNING:" in func_code:
-                codeAnalyzer = CodeAnalyzer(func_code)
+                codeAnalyzer = CodeAnalyzer(func.getSignature(), func_code)
                 func_code = codeAnalyzer.get_code_without_warnings()
 
             for key in integer_types.keys():

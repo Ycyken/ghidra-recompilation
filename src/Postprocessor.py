@@ -250,6 +250,7 @@ class PostProcessor:
                 func_signature = func_signature.replace(key, integer_types[key])
             for key in utypes.keys():
                 func_signature = func_signature.replace(key, utypes[key])
+            func_signature = func_signature.replace(".", "_")
             file.write(func_signature + "\n")
 
         for func in decompiled_funcs:

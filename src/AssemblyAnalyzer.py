@@ -6,13 +6,17 @@ class AssemblyAnalyzer:
 
    def is_function_nonuser(self):
       for code_unit in self.code_units:
-         if str(code_unit) == "HLT":
+         if code_unit.getMnemonicString() == "HLT":
             return True
          
          elif code_unit.getMnemonicString() != "JMP":
             continue
 
-         destination_address = int(str(code_unit.getPrimaryReference(0).getToAddress()), 16)
+         primary_reference = code_unit.getPrimaryReference(0)
+         if primary_reference == None:
+            continue
+
+         destination_address = int(str(primary_reference.getToAddress()), 16)
          if self.start_address > destination_address or destination_address > self.end_address:
             return True
 

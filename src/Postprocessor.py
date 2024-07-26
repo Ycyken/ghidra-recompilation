@@ -62,6 +62,98 @@ types_from_libc = {
     "fexcept_t": "fenv.h",
 }
 
+definitions_from_libc = {
+    "__ctype_b_loc": "ctype.h",
+    "__ctype_tolower_loc": "ctype.h",
+    "__ctype_toupper_loc": "ctype.h",
+    "_tolower": "ctype.h",
+    "_toupper": "ctype.h",
+    "isalnum": "ctype.h",
+    "isalnum_l": "ctype.h",
+    "isalpha": "ctype.h",
+    "isalpha_l": "ctype.h",
+    "isascii": "ctype.h",
+    "isblank": "ctype.h",
+    "isblank_l": "ctype.h",
+    "iscntrl": "ctype.h",
+    "iscntrl_l": "ctype.h",
+    "isdigit": "ctype.h",
+    "isdigit_l": "ctype.h",
+    "isgraph": "ctype.h",
+    "isgraph_l": "ctype.h",
+    "islower": "ctype.h",
+    "islower_l": "ctype.h",
+    "isprint": "ctype.h",
+    "isprint_l": "ctype.h",
+    "ispunct": "ctype.h",
+    "ispunct_l": "ctype.h",
+    "isspace": "ctype.h",
+    "isspace_l": "ctype.h",
+    "isupper": "ctype.h",
+    "isupper_l": "ctype.h",
+    "isxdigit": "ctype.h",
+    "isxdigit_l": "ctype.h",
+    "toascii": "ctype.h",
+    "tolower": "ctype.h",
+    "tolower_l": "ctype.h",
+    "toupper": "ctype.h",
+    "toupper_l": "ctype.h",
+
+    "strerror_r": "string.h",
+    "__xpg_strerror_r": "string.h",
+    "bzero": "string.h",
+    "memset": "string.h",
+    "__memcpy_chk": "string.h",
+    "__memmove_chk": "string.h",
+    "__mempcpy": "string.h",
+    "__mempcpy_chk": "string.h",
+    "__memset_chk": "string.h",
+    "__stpcpy": "string.h",
+    "__stpcpy_chk": "string.h",
+    "__stpncpy_chk": "string.h",
+    "__strcat_chk": "string.h",
+    "__strcpy_chk": "string.h",
+    "__strncat_chk": "string.h",
+    "__strncpy_chk": "string.h",
+    "__strtok_r": "string.h",
+    "memccpy": "string.h",
+    "memchr": "string.h",
+    "memcmp": "string.h",
+    "memcpy": "string.h",
+    "memmem": "string.h",
+    "memmove": "string.h",
+    "memrchr": "string.h",
+    "stpcpy": "string.h",
+    "stpncpy": "string.h",
+    "strcasestr": "string.h",
+    "strcat": "string.h",
+    "strchr": "string.h",
+    "strcmp": "string.h",
+    "strcoll": "string.h",
+    "strcoll_l": "string.h",
+    "strcpy": "string.h",
+    "strcspn": "string.h",
+    "strdup": "string.h",
+    "strerror": "string.h",
+    "strerror_l": "string.h",
+    "strlen": "string.h",
+    "strncat": "string.h",
+    "strncmp": "string.h",
+    "strncpy": "string.h",
+    "strndup": "string.h",
+    "strnlen": "string.h",
+    "strpbrk": "string.h",
+    "strrchr": "string.h",
+    "strsep": "string.h",
+    "strsignal": "string.h",
+    "strspn": "string.h",
+    "strstr": "string.h",
+    "strtok": "string.h",
+    "strtok_r": "string.h",
+    "strxfrm": "string.h",
+    "strxfrm_l": "string.h"
+}
+
 floating_point_instructions = ["MOVSS", "MOVSD", "ADDSS", "ADDSD", "SUBSS", "SUBSD", "MULSS", "MULSD",
                                "DIVSS", "DIVSD", "MINSS", "MINSD", "MAXSS", "MAXSD", "SQRTSS", "SQRTSD",
                                "RCPSS", "RCPSD", "RSQRTSS", "RSQRTSD", "CMPSS", "CMPSD", "CMPEQSS", "CMPEQSD",
@@ -81,6 +173,7 @@ class PostProcessor:
             self.elfAnalyzer = elfAnalyzer
             self.flat_api = flat_api
             self.program = program
+            self.headers = set()
 
             funcs = program.functionManager.getFunctionsNoStubs(True)
             filtered_funcs = self.filter_funcs(funcs)
@@ -168,7 +261,7 @@ class PostProcessor:
             else:
                 value = '\"' + value + '\"'
         else:
-            type = integer_types[type]
+            type = integer_types.get(type)
             if value is None:
                 value = "0"
             else:
@@ -197,50 +290,115 @@ class PostProcessor:
                 return True
         return False
 
-    def get_headers_from_ghidra(self, headers):
+    def get_headers_from_ghidra(self):
         data_type_manager = self.program.getDataTypeManager()
         for categoryID in range(data_type_manager.getCategoryCount()):
             header = str(data_type_manager.getCategory(categoryID)).split("/")[1]
             if header in libc:
-                headers.add(header)
-        return headers
+                self.headers.add(header)
+        return self.headers
 
-    def get_headers_from_functions(self, headers, decompiled_funcs):
+    def get_headers_from_functions(self, decompiled_funcs):
         for func in decompiled_funcs:
-            variable_declarations = func.getC().split("{")[1].split(";")
+            func_code = func.getC()
+            variable_declarations = func_code.split("{")[1].split(";")
 
             declarationID = 0
             variable_declaration = variable_declarations[declarationID].split()
             while len(variable_declaration) == 2 and variable_declaration[0] not in ["return", "do"]:
-                headers.add(types_from_libc.get(variable_declaration[0]))
+                self.headers.add(types_from_libc.get(variable_declaration[0]))
                 declarationID += 1
                 variable_declaration = variable_declarations[declarationID].split()
 
-        return headers
+        return self.headers
+    
+    def get_variable_name(self, variable):
+        if "*" in variable:
+                variable = variable[variable.rfind("*")+1:]
+        if "[" in variable:
+            variable = variable[:variable.find("[")]
+        if ";" in variable:
+            variable = variable[:variable.find(";")]
+        return variable
+    
+    def get_variables_types_from_signature(self, lines, types_of_variables):
+        for argument in lines[1][lines[1].find("(")+1:lines[1].find(")")].split(","):
+            if argument == "void":
+                continue
+            type, variable = argument.split()
+            variable = self.get_variable_name(variable)
+            types_of_variables[variable] = type
+        return types_of_variables
 
-    def get_code_without_stack_protection(self, func_code):
+    def get_variables_types_from_code(self, lines, types_of_variables):
+        id = 4
+        variable_declaration = lines[id].split()
+        while len(variable_declaration) == 2 and variable_declaration[0] not in ["return", "do"]:
+            type, variable = variable_declaration
+            variable = self.get_variable_name(variable)
+            types_of_variables[variable] = type
+            id += 1
+            variable_declaration = lines[id].split()
+        return types_of_variables
+
+    def remove_warnings(self, lines, id, warning_in_load, warning_in_store, types_of_variables):
+        lvalue, rvalue = lines[id].split(" = ")
+        variable = self.get_variable_name(lvalue.strip())
+        if warning_in_load:
+            if rvalue[1] == "(":
+                lines[id] = lvalue + " = " + rvalue[0] + f"({types_of_variables[variable]} *)" + rvalue[rvalue.index(")")+1:]
+            else:
+                lines[id] = lvalue + " = " + rvalue[0] + f"({types_of_variables[variable]} *)" + rvalue[1:]
+        
+        if warning_in_store:
+            if lvalue[1] == "(":
+                lines[id] = lvalue[0] + f"({types_of_variables[variable]} *)" + lvalue[lvalue.index(")")+1:] + " = " + rvalue
+            else:
+                lines[id] = lvalue[0] + f"({types_of_variables[variable]} *)" + lvalue[1:] + " = " + rvalue
+    
+    def get_code_without_warnings(self, func_code):
         lines = func_code.split("\n")
+        warning_in_load = False
+        warning_in_store = False
         need_to_delete_brace = False
 
+        types_of_variables = {}
+        types_of_variables = self.get_variables_types_from_signature(lines, types_of_variables)
+        types_of_variables = self.get_variables_types_from_code(lines, types_of_variables)
+        
         for id, line in enumerate(lines):
+            if "WARNING: Load size is inaccurate" in line:
+                warning_in_load = True
+                continue
+
+            elif "WARNING: Store size is inaccurate" in line:
+                warning_in_store = True
+                continue
+
+            elif warning_in_load or warning_in_store:
+                self.remove_warnings(lines, id, warning_in_load, warning_in_store, types_of_variables)
+                warning_in_load, warning_in_store = False, False
+                continue
+
+            elif "}" in line and need_to_delete_brace:
+                lines[id] = ""
+                need_to_delete_brace = False
+                continue
+
             for protector in stack_protectors:
                 if protector in line:
                     if line.strip()[-1] == "{":
                         need_to_delete_brace = True
                     lines[id] = ""
-                    continue
+                    break
 
-                elif "}" in line and need_to_delete_brace:
-                    lines[id] = ""
-                    need_to_delete_brace = False
         return "\n".join(lines)
 
     def write_headers(self, file, decompiled_funcs):
-        headers = set()
-        headers = self.get_headers_from_ghidra(headers)
-        headers = self.get_headers_from_functions(headers, decompiled_funcs)
+        self.headers = self.get_headers_from_ghidra()
+        self.headers = self.get_headers_from_functions(decompiled_funcs)
 
-        for header in headers:
+        for header in self.headers:
             if header is None:
                 continue
             file.write(f"#include<{header}>\n")
@@ -259,9 +417,9 @@ class PostProcessor:
 
         for func in decompiled_funcs:
             func_code = func.getC()
-            for protector in stack_protectors:
-                if protector in func_code:
-                    func_code = self.get_code_without_stack_protection(func_code)
+            if "WARNING:" in func_code:
+                func_code = self.get_code_without_warnings(func_code)
+
             for key in integer_types.keys():
                 func_code = func_code.replace(key, integer_types[key])
             for key in utypes.keys():
@@ -284,6 +442,8 @@ class PostProcessor:
     def filter_funcs(self, funcs):
         filtered_funcs = []
         for f in funcs:
+            self.headers.add(definitions_from_libc.get(f.getName()))
+
             if f.getName() in static_linked_funcs or f.isThunk():
                 continue
 

@@ -3,6 +3,9 @@ import shutil
 from src.ElfAnalyzer import ElfAnalyzer
 from src.AssemblyAnalyzer import AssemblyAnalyzer
 from src.CodeAnalyzer import CodeAnalyzer
+from src.TypeAnalyzer import TypeAnalyzer
+from src.TypeAnalyzer import integer_types
+from src.TypeAnalyzer import utypes
 
 pyhidra.start()
 
@@ -12,36 +15,10 @@ from ghidra.util.task import ConsoleTaskMonitor
 from ghidra.program.model.address import AddressRangeImpl
 from ghidra.program.model.symbol import SourceType
 
-integer_types = {
-    "undefined1": "char",
-    "undefined2": "short",
-    "undefined3": "int",
-    "undefined4": "int",
-    "undefined5": "long long",
-    "undefined6": "long long",
-    "undefined7": "long long",
-    "undefined8": "long long",
-    "undefined": "char",
-}
-
-float_types = {
-    "undefined4": "double",
-    "undefined8": "double",
-    "undefined": "double"
-}
-
 static_linked_funcs = ["_init", "_start", "deregister_tm_clones", "register_tm_clones",
                        "__do_global_dtors_aux", "frame_dummy", "_fini", "__libc_start_main",
                        "_ITM_deregisterTMCloneTable", "_ITM_registerTMCloneTable", "__gmon_start__",
                        "__cxa_finalize"]
-
-utypes = {
-    "byte": "unsigned char",
-    "ulong": "unsigned long",
-    "ulonglong": "unsigned long long",
-    "uint": "unsigned int",
-    "ushort": "unsigned short"
-}
 
 libc = ["assert.h", "ctype.h", "complex.h", "errno.h", "fenv.h", "float.h", "inttypes.h",
         "iso646.h", "limits.h", "locale.h", "math.h", "setjmp.h", "signal.h", "stdarg.h",
@@ -161,6 +138,7 @@ floating_point_instructions = ["MOVSS", "MOVSD", "ADDSS", "ADDSD", "SUBSS", "SUB
                                "CMPLTSS", "CMPLTSD", "CMPLESS", "CMPLESD", "CMPNESS", "CMPNESD", "CMPUNORDSS",
                                "CMPUNORDSD", "CMPNLTSS", "CMPNLTSD", "CMPNLESS", "CMPNLESD", "CMPORDSS", "CMPORDSD"]
 
+
 class PostProcessor:
     def __init__(self, filepath: str):
         self.filepath = filepath
@@ -169,6 +147,7 @@ class PostProcessor:
         with pyhidra.open_program(self.filepath) as flat_api, ElfAnalyzer(self.filepath) as elfAnalyzer:
             program = flat_api.getCurrentProgram()
             self.elfAnalyzer = elfAnalyzer
+            self.typeAnalyzer = TypeAnalyzer(flat_api)
             self.flat_api = flat_api
             self.program = program
             self.headers = set()
@@ -187,7 +166,7 @@ class PostProcessor:
         for section_name in sections:
             symbols = self.get_symbols_from_section(section_name)
             for symbol in symbols:
-                result = self.get_symbol_type_and_value(symbol)
+                result = self.typeAnalyzer.get_symbol_type_and_value(symbol)
                 if result is None:
                     continue
 
@@ -225,69 +204,6 @@ class PostProcessor:
                 symbols_in_section.append(symbol_table.getSymbols(addr)[0])
         return symbols_in_section
 
-    def get_symbol_type_and_value(self, symbol) -> (str, str):
-        """
-        Find the data corresponding to this symbol and return its type and value.
-        :param symbol:
-        :return: (type, value) or None if there is no data for this symbol
-        """
-        addr = symbol.getAddress()
-        listing = self.program.getListing()
-        data = listing.getDataAt(addr)
-        if data is None:
-            return None
-        type = data.getDataType().getName().lower()
-        value = data.getValue()
-        if self.is_symbol_float(symbol):
-            type = float_types[type]
-            if value is None:
-                value = "0"
-            elif type == "float":
-                value = self.flat_api.getFloat(addr)
-            else:
-                value = self.flat_api.getDouble(addr)
-        elif type == "pointer":
-            type = "void *"
-            if value is None:
-                value = "NULL"
-            else:
-                value = int(str(value), 16)
-        elif type == "string":
-            type = "char *"
-            if value is None:
-                value = "NULL"
-            else:
-                value = '\"' + value + '\"'
-        else:
-            type = integer_types.get(type)
-            if value is None:
-                value = "0"
-            else:
-                value = int(str(value), 16)
-        return type, str(value)
-
-    def is_symbol_float(self, symbol) -> bool:
-        listing = self.program.getListing()
-        addr = symbol.getAddress()
-        data = listing.getDataAt(addr)
-        if data is None:
-            return False
-        type = data.getDataType().getName()
-        if "float" in type or "double" in type.lower():
-            return True
-        if not ("undefined" in type.lower()):
-            return False
-
-        for reference in symbol.getReferences():
-            addr = reference.getFromAddress()
-            code_unit = listing.getCodeUnitContaining(addr)
-            if code_unit is None:
-                continue
-            mnemonic = code_unit.getMnemonicString()
-            if mnemonic in floating_point_instructions:
-                return True
-        return False
-
     def get_headers_from_ghidra(self):
         data_type_manager = self.program.getDataTypeManager()
         for categoryID in range(data_type_manager.getCategoryCount()):
@@ -302,14 +218,16 @@ class PostProcessor:
             variable_declarations = func_code.split("{")[1].split(";")
 
             declarationID = 0
-            variable_declaration = variable_declarations[declarationID][:variable_declarations[declarationID].find(" [")].split()
+            variable_declaration = variable_declarations[declarationID][
+                                   :variable_declarations[declarationID].find(" [")].split()
             while len(variable_declaration) == 2 and variable_declaration[0] not in ["return", "do"]:
                 self.headers.add(types_from_libc.get(variable_declaration[0]))
                 declarationID += 1
-                variable_declaration = variable_declarations[declarationID][:variable_declarations[declarationID].find(" [")].split()
+                variable_declaration = variable_declarations[declarationID][
+                                       :variable_declarations[declarationID].find(" [")].split()
 
         return self.headers
-    
+
     def write_headers(self, file, decompiled_funcs):
         self.headers = self.get_headers_from_ghidra()
         self.headers = self.get_headers_from_functions(decompiled_funcs)
@@ -370,8 +288,8 @@ class PostProcessor:
                 continue
 
             addr_set = f.getBody()
-            assemblyAnalyzer = AssemblyAnalyzer(addr_set, self.program.getListing())
-            if assemblyAnalyzer.is_function_nonuser():
+            assemly_analyzer = AssemblyAnalyzer(addr_set, self.program.getListing())
+            if assemly_analyzer.is_function_nonuser():
                 continue
 
             filtered_funcs.append(f)

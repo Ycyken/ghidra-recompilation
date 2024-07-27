@@ -209,7 +209,7 @@ class PostProcessor:
                 symbols_in_section.append(symbol_table.getSymbols(addr)[0])
         return symbols_in_section
 
-    def get_headers_from_ghidra(self):
+    def add_headers_from_ghidra(self):
         data_type_manager = self.program.getDataTypeManager()
         for categoryID in range(data_type_manager.getCategoryCount()):
             category = data_type_manager.getCategory(categoryID)
@@ -218,31 +218,26 @@ class PostProcessor:
             header = str(category).split("/")[-1]
             if header in libc:
                 self.headers.add(header)
-        return self.headers
 
-    def get_headers_from_functions(self, decompiled_funcs):
+    def add_headers_from_functions(self, decompiled_funcs):
         for func in decompiled_funcs:
             func_code = func.getC()
-            variable_declarations = func_code.split("{")[1].split(";")
+            codelines = func_code.split("{")[1].split(";")
 
-            declarationID = 0
-            variable_declaration = variable_declarations[declarationID][
-                                   :variable_declarations[declarationID].find(" [")].split()
-            while len(variable_declaration) == 2 and variable_declaration[0] not in ["return", "do"]:
-                self.headers.add(types_from_libc.get(variable_declaration[0]))
-                declarationID += 1
-                variable_declaration = variable_declarations[declarationID][
-                                       :variable_declarations[declarationID].find(" [")].split()
-
-        return self.headers
+            for codeline in codelines:
+                declaration = codeline[:codeline.find("[")].split()
+                if len(declaration) != 2:
+                    continue
+                data_type = declaration[0]
+                header = types_from_libc.get(data_type)
+                if header is not None:
+                    self.headers.add(header)
 
     def write_headers(self, file, decompiled_funcs):
-        self.headers = self.get_headers_from_ghidra()
-        self.headers = self.get_headers_from_functions(decompiled_funcs)
+        self.add_headers_from_ghidra()
+        self.add_headers_from_functions(decompiled_funcs)
 
         for header in self.headers:
-            if header is None:
-                continue
             file.write(f"#include <{header}>\n")
         file.write("\n")
 

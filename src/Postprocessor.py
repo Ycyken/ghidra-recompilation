@@ -170,19 +170,17 @@ class PostProcessor:
                 if result is None:
                     continue
 
-                type, value = result
+                data_type, value = result
                 name = symbol.getName()
                 if name[0] == "_" or "std" in name:
                     continue
                 correct_name = self.correct_variable_name(name)
-                if "char[" in type:
-                    opening_sq_bracker_index = type.index("[")
-                    closing_sq_bracker_index = type.index("]")
-                    array_size = int(type[opening_sq_bracker_index + 1:closing_sq_bracker_index])
-                    type = "char"
-                    correct_name += f"[{array_size}]"
-                    
-                global_var_definition = repr(f"{type} {correct_name} = {value};")[1:-1]
+                data_type, correct_name = self.typeAnalyzer.correct_array_type_declaration(data_type, correct_name)
+                global_var_definition = ""
+                if value is None:
+                    global_var_definition = repr(f"{data_type} {correct_name};")[1:-1]
+                else:
+                    global_var_definition = repr(f"{data_type} {correct_name} = {value};")[1:-1]
                 file.write(global_var_definition + "\n")
         file.write("\n")
 

@@ -9,7 +9,7 @@ floating_point_instructions = ["MOVSS", "MOVSD", "ADDSS", "ADDSD", "SUBSS", "SUB
                                "CMPUNORDSD", "CMPNLTSS", "CMPNLTSD", "CMPNLESS", "CMPNLESD", "CMPORDSS", "CMPORDSD"]
 
 float_types = {
-    "undefined4": "double",
+    "undefined4": "float",
     "undefined8": "double",
     "undefined": "double"
 }
@@ -51,53 +51,71 @@ class TypeAnalyzer:
         data = self.listing.getDataAt(addr)
         if data is None:
             return None
-        display_type = data.getDataType().getDisplayName()
+        data_type = data.getDataType().getDisplayName()
         value = data.getValue()
 
         data_type_default = data.getDataType().getName()
-        if (display_type != data_type_default):
+        if (data_type != data_type_default):
             logger.warning(
-                f"Datatype name and displayName are different: {data_type_default} and {display_type}")
+                f"Datatype name and displayName are different: {data_type_default} and {data_type}")
 
         if self.is_symbol_float(symbol):
-            display_type = float_types.get(display_type, display_type)
+            data_type = float_types.get(data_type, data_type)
             if value is None:
                 value = "0"
-            elif display_type == "float":
+            elif data_type == "float":
                 value = self.flat_api.getFloat(addr)
             else:
                 value = self.flat_api.getDouble(addr)
-        elif display_type == "pointer":
-            display_type = "void *"
+        elif data_type == "pointer":
+            data_type = "void *"
             if value is None:
                 value = "NULL"
-            else:
+            elif not isinstance(value, str):
                 value = int(str(value), 16)
-        elif display_type == "string":
-            display_type = "char *"
+        elif data_type == "string":
+            data_type = "char *"
             if value is None:
                 value = "NULL"
-            elif type(value) is str:
+            elif isinstance(value, str):
                 value = '\"' + value + '\"'
             else:
                 value = int(str(value), 16)
-        elif "char *" in display_type or "char[" in display_type:
-            if type(value) is str:
+        elif "char *" in data_type or "char[" in data_type:
+            if value is None:
+                value = "NULL"
+            elif isinstance(value, str):
                 value = '\"' + value + '\"'
             else:
                 value = int(str(value), 16)
-        elif "bool" in display_type.lower():
-            display_type = "bool"
+        elif "bool" in data_type.lower():
+            data_type = "bool"
             if value is None:
                 value = "false"
         else:
-            display_type = integer_types.get(display_type, display_type)
-            display_type = utypes.get(display_type, display_type)
-            if value is None:
-                value = "0"
-            else:
+            data_type = integer_types.get(data_type, data_type)
+            data_type = utypes.get(data_type, data_type)
+            if not isinstance(value, str) and value is not None:
                 value = int(str(value), 16)
-        return display_type, str(value).lower()
+            elif data_type == "char" and isinstance(value, str):
+                value = "\'" + value + "\'"
+        if value is None:
+            return data_type, value
+        return data_type, str(value).lower()
+
+    def correct_array_type_declaration(self, data_type: str, var_name: str) -> (str, str):
+        if "[" not in data_type or "]" not in data_type:
+            return data_type, var_name
+        opening_sq_bracket_index = data_type.index("[")
+        closing_sq_bracket_index = data_type.index("]")
+        if closing_sq_bracket_index == (opening_sq_bracket_index + 1):
+            logger.warning(f"Array data type without size is met: {data_type}")
+            return data_type, var_name
+
+        array_size = data_type[opening_sq_bracket_index:closing_sq_bracket_index + 1]
+        data_type = data_type[:opening_sq_bracket_index]
+        var_name = var_name + array_size
+        return data_type, var_name
 
     def is_symbol_float(self, symbol) -> bool:
         addr = symbol.getAddress()

@@ -238,6 +238,8 @@ class PostProcessor:
         self.add_headers_from_functions(decompiled_funcs)
 
         for header in self.headers:
+            if header is None:
+                continue
             file.write(f"#include <{header}>\n")
         file.write("\n")
 

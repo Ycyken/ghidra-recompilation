@@ -1,23 +1,24 @@
 stack_protectors = ["__stack_chk_fail", "___stack_chk_guard", "in_FS_OFFSET"]
 
+
 class CodeAnalyzer:
     def __init__(self, signature: str, func_code: str):
         self.func_code = func_code
         self.signature = signature
         self.types_of_variables = {}
-        
+
     def get_variable_name(self, variable: str) -> str:
         if "*" in variable:
-                variable = variable[variable.rfind("*")+1:]
+            variable = variable[variable.rfind("*") + 1:]
         if "[" in variable:
             variable = variable[:variable.find("[")]
         if ";" in variable:
             variable = variable[:variable.find(";")]
         return variable
-    
+
     def get_variables_types_from_signature(self):
-        for argument in self.signature[self.signature.find("(")+1:self.signature.find(")")].split(","):
-            if argument == "void":
+        for argument in self.signature[self.signature.find("(") + 1:self.signature.find(")")].split(","):
+            if argument == "void" or argument == "...":
                 break
             type, variable = argument.split()
             variable = self.get_variable_name(variable)
@@ -25,17 +26,21 @@ class CodeAnalyzer:
         return self.types_of_variables
 
     def get_line_without_warnings(self, line: str, warning_in_load: bool, warning_in_store: bool) -> str:
+        if " = " not in line:
+            return line
         lvalue, rvalue = line.split(" = ")
         variable = self.get_variable_name(lvalue.strip())
         if warning_in_load:
             if rvalue[1] == "(":
-                line = lvalue + " = " + rvalue[0] + f"({self.types_of_variables[variable]} *)" + rvalue[rvalue.index(")")+1:]
+                line = lvalue + " = " + rvalue[0] + f"({self.types_of_variables[variable]} *)" + rvalue[
+                                                                                                 rvalue.index(")") + 1:]
             else:
                 line = lvalue + " = " + rvalue[0] + f"({self.types_of_variables[variable]} *)" + rvalue[1:]
-        
+
         if warning_in_store:
             if lvalue[1] == "(":
-                line = lvalue[0] + f"({self.types_of_variables[variable]} *)" + lvalue[lvalue.index(")")+1:] + " = " + rvalue
+                line = lvalue[0] + f"({self.types_of_variables[variable]} *)" + lvalue[
+                                                                                lvalue.index(")") + 1:] + " = " + rvalue
             else:
                 line = lvalue[0] + f"({self.types_of_variables[variable]} *)" + lvalue[1:] + " = " + rvalue
         return line
@@ -59,7 +64,7 @@ class CodeAnalyzer:
             self.types_of_variables[variable] = type
             lineID += 1
             line = lines[lineID][:lines[lineID].find(" [")].split()
-        
+
         for id in range(lineID, len(lines)):
             if "WARNING: Load size is inaccurate" in lines[id]:
                 warning_in_load = True

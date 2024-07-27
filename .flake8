@@ -1,0 +1,12 @@
+[flake8]
+extend-ignore = E402
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    .venv,
+    .github,
+    .git,
+    .idea,
+max-complexity = 20
+max-line-length = 120

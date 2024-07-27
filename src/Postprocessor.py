@@ -306,7 +306,7 @@ class PostProcessor:
             while len(variable_declaration) == 2 and variable_declaration[0] not in ["return", "do"]:
                 self.headers.add(types_from_libc.get(variable_declaration[0]))
                 declarationID += 1
-                variable_declaration = variable_declarations[declarationID].split()
+                variable_declaration = variable_declarations[declarationID][:variable_declarations[declarationID].find(" [")].split()
 
         return self.headers
     

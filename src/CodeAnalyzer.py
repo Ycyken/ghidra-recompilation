@@ -32,10 +32,11 @@ class CodeAnalyzer:
         variable = self.get_variable_name(lvalue.strip())
         if warning_in_load:
             if rvalue[1] == "(":
-                line = lvalue + " = " + rvalue[0] + f"({self.types_of_variables[variable]} *)" + rvalue[
-                                                                                                 rvalue.index(")") + 1:]
+                line = (lvalue + " = " + rvalue[0] + f"({self.types_of_variables[variable]} *)" +
+                        rvalue[rvalue.index(")") + 1:])
             else:
-                line = lvalue + " = " + rvalue[0] + f"({self.types_of_variables[variable]} *)" + rvalue[1:]
+                line = (lvalue + " = " + rvalue[0] + f"({self.types_of_variables[variable]} *)" +
+                        rvalue[1:])
 
         if warning_in_store:
             if lvalue[1] == "(":

@@ -1,5 +1,3 @@
-import unittest
-
 import pytest
 import os
 from src.Postprocessor import PostProcessor
@@ -23,11 +21,11 @@ class TestPostprocessor():
         yield
         try:
             os.remove(f"tests/{self.binary_name}.c")
-        except OSError as e:
+        except OSError:
             pass
         try:
             os.remove(f"tests/{self.binary_name}_recompiled")
-        except OSError as e:
+        except OSError:
             pass
 
     def test_hello_world(self, cleanup):

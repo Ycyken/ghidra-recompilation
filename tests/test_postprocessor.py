@@ -14,6 +14,10 @@ class TestPostprocessor():
         exit_code = os.system(f"gcc tests/{self.binary_name}.c -o tests/{self.binary_name}_recompiled -w {flags}")
         return exit_code
 
+    def decompile_binary(self, flags: str = ""):
+        postprocessor = PostProcessor(f"tests/{self.binary_name}")
+        postprocessor.run()
+
     @pytest.fixture
     def cleanup(self):
         yield
@@ -50,3 +54,11 @@ class TestPostprocessor():
         self.binary_name = "calculator"
         exit_code = self.recompile_binary()
         assert exit_code == 0, "calculator must recompile"
+
+    def test_smoke_ls(self, cleanup):
+        self.binary_name = "ls"
+        self.decompile_binary()
+
+    def test_smoke_pwd(self, cleanup):
+        self.binary_name = "pwd"
+        self.decompile_binary()

@@ -53,10 +53,22 @@ class TestPostprocessor():
         exit_code = self.recompile_binary()
         assert exit_code == 0, "calculator must recompile"
 
+    def test_smoke_integral_sinx(self, cleanup):
+        self.binary_name = "integral_sinx"
+        self.decompile_binary()
+
     def test_smoke_ls(self, cleanup):
         self.binary_name = "ls"
         self.decompile_binary()
 
     def test_smoke_pwd(self, cleanup):
         self.binary_name = "pwd"
+        self.decompile_binary()
+
+    def test_smoke_cat(self, cleanup):
+        self.binary_name = "cat"
+        self.decompile_binary()
+
+    def test_smoke_yes(self, cleanup):
+        self.binary_name = "yes"
         self.decompile_binary()

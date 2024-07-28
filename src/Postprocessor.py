@@ -1,5 +1,6 @@
 import pyhidra
 import shutil
+import logging
 from src.ElfAnalyzer import ElfAnalyzer
 from src.AssemblyAnalyzer import AssemblyAnalyzer
 from src.CodeAnalyzer import CodeAnalyzer
@@ -8,12 +9,13 @@ from src.TypeAnalyzer import integer_types
 from src.TypeAnalyzer import utypes
 
 pyhidra.start()
-
 from ghidra.app.decompiler import DecompInterface
 from ghidra.app.decompiler import DecompileOptions
 from ghidra.util.task import ConsoleTaskMonitor
 from ghidra.program.model.address import AddressRangeImpl
 from ghidra.program.model.symbol import SourceType
+
+logger = logging.getLogger(__name__)
 
 static_linked_funcs = ["_init", "_start", "deregister_tm_clones", "register_tm_clones",
                        "__do_global_dtors_aux", "frame_dummy", "_fini", "__libc_start_main",
@@ -276,6 +278,10 @@ class PostProcessor:
         funcs_decompiled = []
         for f in funcs:
             result = ifc.decompileFunction(f, 0, ConsoleTaskMonitor())
+            if not result.decompileCompleted():
+                logger.warning("function %s was not decompiled: %s", f.getName(), result.getErrorMessage())
+                continue
+
             func_decompiled = result.getDecompiledFunction()
             funcs_decompiled.append(func_decompiled)
         return funcs_decompiled

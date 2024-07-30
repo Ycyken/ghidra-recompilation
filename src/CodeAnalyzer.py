@@ -81,7 +81,7 @@ class CodeAnalyzer:
             if (line[rvalue_id].isalnum() or line[rvalue_id] == "_") and not is_type_defined:
                 rvalue_type += line[rvalue_id]
             elif rvalue_type != "" and not is_type_defined:
-                if line[rvalue_id] == ".":
+                if line[rvalue_id] == "." and line[rvalue_id + 1] == "_":
                     rvalue_type = "char_pointer"
                 elif self.types_of_variables.get(rvalue_type) != None:
                     rvalue_type = self.types_of_variables.get(rvalue_type)

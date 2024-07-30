@@ -78,14 +78,6 @@ class CodeAnalyzer:
 
     def get_rvalue_and_type(self, rvalue: str, is_rvalue_building: bool, rvalue_type: str, is_type_defined: bool, line: str, size: str, id: int) -> {str, bool, str, bool, int}:
         for rvalue_id in range(id, len(line)):
-            if line[rvalue_id] in [",", ";"]:
-                if not is_type_defined:
-                    rvalue_type = types_sizes[size]
-                    self.transfer_types.add(rvalue_type)
-                is_rvalue_building = False
-                break
-
-            rvalue += line[rvalue_id]
             if (line[rvalue_id].isalnum() or line[rvalue_id] == "_") and not is_type_defined:
                 rvalue_type += line[rvalue_id]
             elif rvalue_type != "" and not is_type_defined:
@@ -93,11 +85,19 @@ class CodeAnalyzer:
                     rvalue_type = "char_pointer"
                 elif self.types_of_variables.get(rvalue_type) != None:
                     rvalue_type = self.types_of_variables.get(rvalue_type)
+                elif "0x" in rvalue_type or rvalue_type.isdigit():
+                    rvalue_type = types_sizes[size]
                 self.transfer_types.add(rvalue_type)
                 is_type_defined = True
 
+            if line[rvalue_id] in [",", ";"]:
+                is_rvalue_building = False
+                break
+
+            rvalue += line[rvalue_id]
+
         return rvalue, is_rvalue_building, rvalue_type, is_type_defined, rvalue_id
-    
+
     def get_line_without_dots(self, start_line: str, end_line: str, variable: str, variable_id: int, start: str, size: str, rvalue: str, rvalue_type: str, rvalue_id: int) -> str:
         line = start_line[:variable_id + 1] + f"transfer_value_from_{rvalue_type.replace(" ", "_")}("
         if self.types_of_variables.get(variable) != "undefined":

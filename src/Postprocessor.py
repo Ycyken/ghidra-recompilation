@@ -60,6 +60,7 @@ class PostProcessor:
             self.program = program
             # stdbool temporary included by default cause types detection in global variables not yet implemented
             self.headers: set[str] = {"stdbool.h"}
+            self.transfer_types = set()
 
             funcs = program.functionManager.getFunctionsNoStubs(True)
             filtered_funcs = self.filter_funcs(funcs)
@@ -176,6 +177,30 @@ class PostProcessor:
             file.write(f"#include <{header}>\n")
         file.write("\n")
 
+    def write_transfer_func(self, file, type):
+        file.write(f"void transfer_value_from_{type.replace(" ", "_")}(char *to, {type} from, int start, int size)\n")
+        file.write("{\n")
+        file.write("  char *p = (char *)&from;\n")
+        file.write("  for (int i = start; i < start + size; ++i)\n")
+        file.write("  {\n")
+        file.write("    to[i] = *p;\n")
+        file.write("    ++p;\n")
+        file.write("  }\n")
+        file.write("}\n")
+        file.write("\n")
+
+    def write_transfer_func_pchar(self, file, type):
+        file.write(f"void transfer_value_from_{type.replace(" ", "_")}(char *to, char *from, int from_start, int to_start, int to_size)\n")
+        file.write("{\n")
+        file.write("  int j = from_start;\n")
+        file.write("  for (int i = to_start; i < to_start + to_size; ++i)\n")
+        file.write("  {\n")
+        file.write("    to[i] = from[j];\n")
+        file.write("    ++j;\n")
+        file.write("  }\n")
+        file.write("}\n")
+        file.write("\n")
+
     def write_funcs(self, file, funcs, decompiled_funcs):
         for index, func in enumerate(decompiled_funcs):
             if funcs[index].getName() == "main":
@@ -190,9 +215,17 @@ class PostProcessor:
 
         for func in decompiled_funcs:
             func_code = func.getC()
-            if "WARNING:" in func_code:
+            if "WARNING:" in func_code or "._" in func_code:
                 codeAnalyzer = CodeAnalyzer(func.getSignature(), func_code)
-                func_code = codeAnalyzer.get_code_without_warnings()
+                func_code = codeAnalyzer.get_correct_code()
+                for type in codeAnalyzer.get_transfer_types():
+                    if type in self.transfer_types:
+                        continue
+                    if type == "char_pointer":
+                        self.write_transfer_func_pchar(file, type)
+                    else:
+                        self.write_transfer_func(file, type)
+                    self.transfer_types.add(type)
 
             for key in integer_types.keys():
                 func_code = func_code.replace(key, integer_types[key])

@@ -1,11 +1,21 @@
 stack_protectors = ["__stack_chk_fail", "___stack_chk_guard", "in_FS_OFFSET"]
 
+types_sizes = {
+    "1": "char",
+    "2": "short",
+    "4": "int",
+    "8": "long long"
+}
 
 class CodeAnalyzer:
     def __init__(self, signature: str, func_code: str):
         self.func_code = func_code
         self.signature = signature
         self.types_of_variables = {}
+        self.transfer_types = set()
+
+    def get_transfer_types(self):
+        return self.transfer_types
 
     def get_variable_name(self, variable: str) -> str:
         if "*" in variable:
@@ -14,9 +24,11 @@ class CodeAnalyzer:
             variable = variable[:variable.find("[")]
         if ";" in variable:
             variable = variable[:variable.find(";")]
+        if ")" in variable:
+            variable = variable[:variable.find(")")]
         return variable
 
-    def get_variables_types_from_signature(self):
+    def get_variables_types_from_signature(self) -> dict:
         for argument in self.signature[self.signature.find("(") + 1:self.signature.find(")")].split(","):
             if argument == "void" or argument == "...":
                 break
@@ -45,11 +57,66 @@ class CodeAnalyzer:
             else:
                 line = lvalue[0] + f"({self.types_of_variables[variable]} *)" + lvalue[1:] + " = " + rvalue
         return line
+    
+    def get_variable_and_id(self, line: str, id: int) -> {str, int}:
+        variable = ""
 
-    def get_code_without_warnings(self) -> str:
+        while line[id].isalnum() or line[id] == "_":
+            variable = line[id] + variable
+            id -= 1
+
+        return variable, id
+    
+    def get_variable_attribute_and_id(self, line: str, id: int) -> {str, int}:
+        attribute = ""
+
+        while line[id].isdigit():
+            attribute += line[id]
+            id += 1
+
+        return attribute, id
+
+    def get_rvalue_and_type(self, rvalue: str, is_rvalue_building: bool, rvalue_type: str, is_type_defined: bool, line: str, size: str, id: int) -> {str, bool, str, bool, int}:
+        for rvalue_id in range(id, len(line)):
+            if line[rvalue_id] in [",", ";"]:
+                if not is_type_defined:
+                    rvalue_type = types_sizes[size]
+                    self.transfer_types.add(rvalue_type)
+                is_rvalue_building = False
+                break
+
+            rvalue += line[rvalue_id]
+            if (line[rvalue_id].isalnum() or line[rvalue_id] == "_") and not is_type_defined:
+                rvalue_type += line[rvalue_id]
+            elif rvalue_type != "" and not is_type_defined:
+                if line[rvalue_id] == ".":
+                    rvalue_type = "char_pointer"
+                elif self.types_of_variables.get(rvalue_type) != None:
+                    rvalue_type = self.types_of_variables.get(rvalue_type)
+                self.transfer_types.add(rvalue_type)
+                is_type_defined = True
+
+        return rvalue, is_rvalue_building, rvalue_type, is_type_defined, rvalue_id
+    
+    def get_line_without_dots(self, start_line: str, end_line: str, variable: str, variable_id: int, start: str, size: str, rvalue: str, rvalue_type: str, rvalue_id: int) -> str:
+        line = start_line[:variable_id + 1] + f"transfer_value_from_{rvalue_type.replace(" ", "_")}("
+        if self.types_of_variables.get(variable) != "undefined":
+            line += "&"
+        line += f"{variable}, "
+        if rvalue_type == "char_pointer":
+            rvalue_start = rvalue.split("_")[2]
+            line += f"{rvalue[:rvalue.find(".")].replace("= ", "").lstrip()}, {rvalue_start}, "
+        else:
+            line += f"{rvalue.replace("= ", "").lstrip()}, "
+        line += f"{start}, {size})" + end_line[rvalue_id:]
+
+        return line
+
+    def get_correct_code(self) -> str:
         warning_in_load = False
         warning_in_store = False
         need_to_delete_brace = False
+        is_rvalue_building = False
 
         self.types_of_variables = self.get_variables_types_from_signature()
 
@@ -67,6 +134,28 @@ class CodeAnalyzer:
             line = lines[lineID][:lines[lineID].find(" [")].split()
 
         for id in range(lineID, len(lines)):
+            if is_rvalue_building:
+                rvalue, is_rvalue_building, rvalue_type, is_type_defined, rvalue_id = self.get_rvalue_and_type(rvalue, is_rvalue_building, rvalue_type, is_type_defined, lines[id], size, 0)
+                if not is_rvalue_building:
+                    lines[id_start] = self.get_line_without_dots(lines[id_start], lines[id], variable, variable_id, start, size, rvalue, rvalue_type, rvalue_id)
+
+                for i in range(id_start + 1, id + 1):
+                    lines[i] = ""
+
+            elif "._" in lines[id]:
+                dot_id = lines[id].find("._")
+                variable, variable_id = self.get_variable_and_id(lines[id], dot_id - 1)
+                start, start_id = self.get_variable_attribute_and_id(lines[id], dot_id + 2)
+                size, size_id = self.get_variable_attribute_and_id(lines[id], start_id + 1)
+
+                rvalue, is_rvalue_building, rvalue_type, is_type_defined, rvalue_id = self.get_rvalue_and_type("", True, "", False, lines[id], size, size_id + 1)
+                if not is_rvalue_building:
+                    lines[id] = self.get_line_without_dots(lines[id], lines[id], variable, variable_id, start, size, rvalue, rvalue_type, rvalue_id)
+                else:
+                    id_start = id
+
+                continue
+
             if "WARNING: Load size is inaccurate" in lines[id]:
                 warning_in_load = True
                 continue

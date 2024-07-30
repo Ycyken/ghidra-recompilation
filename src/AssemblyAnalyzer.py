@@ -9,7 +9,7 @@ class AssemblyAnalyzer:
             if code_unit.getMnemonicString() == "HLT":
                 return True
 
-            elif code_unit.getMnemonicString() != "JMP":
+            if code_unit.getMnemonicString() != "JMP":
                 continue
 
             primary_reference = code_unit.getPrimaryReference(0)

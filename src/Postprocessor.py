@@ -7,6 +7,7 @@ from src.CodeAnalyzer import CodeAnalyzer
 from src.TypeAnalyzer import TypeAnalyzer
 from src.TypeAnalyzer import integer_types
 from src.TypeAnalyzer import utypes
+from src.resources.LibcDefinitions import libc_definitions
 from collections import deque
 
 pyhidra.start()
@@ -41,98 +42,6 @@ types_from_libc = {
     "wctype_t": "wchar.h",
     "fenv_t": "fenv.h",
     "fexcept_t": "fenv.h",
-}
-
-definitions_from_libc = {
-    "__ctype_b_loc": "ctype.h",
-    "__ctype_tolower_loc": "ctype.h",
-    "__ctype_toupper_loc": "ctype.h",
-    "_tolower": "ctype.h",
-    "_toupper": "ctype.h",
-    "isalnum": "ctype.h",
-    "isalnum_l": "ctype.h",
-    "isalpha": "ctype.h",
-    "isalpha_l": "ctype.h",
-    "isascii": "ctype.h",
-    "isblank": "ctype.h",
-    "isblank_l": "ctype.h",
-    "iscntrl": "ctype.h",
-    "iscntrl_l": "ctype.h",
-    "isdigit": "ctype.h",
-    "isdigit_l": "ctype.h",
-    "isgraph": "ctype.h",
-    "isgraph_l": "ctype.h",
-    "islower": "ctype.h",
-    "islower_l": "ctype.h",
-    "isprint": "ctype.h",
-    "isprint_l": "ctype.h",
-    "ispunct": "ctype.h",
-    "ispunct_l": "ctype.h",
-    "isspace": "ctype.h",
-    "isspace_l": "ctype.h",
-    "isupper": "ctype.h",
-    "isupper_l": "ctype.h",
-    "isxdigit": "ctype.h",
-    "isxdigit_l": "ctype.h",
-    "toascii": "ctype.h",
-    "tolower": "ctype.h",
-    "tolower_l": "ctype.h",
-    "toupper": "ctype.h",
-    "toupper_l": "ctype.h",
-
-    "strerror_r": "string.h",
-    "__xpg_strerror_r": "string.h",
-    "bzero": "string.h",
-    "memset": "string.h",
-    "__memcpy_chk": "string.h",
-    "__memmove_chk": "string.h",
-    "__mempcpy": "string.h",
-    "__mempcpy_chk": "string.h",
-    "__memset_chk": "string.h",
-    "__stpcpy": "string.h",
-    "__stpcpy_chk": "string.h",
-    "__stpncpy_chk": "string.h",
-    "__strcat_chk": "string.h",
-    "__strcpy_chk": "string.h",
-    "__strncat_chk": "string.h",
-    "__strncpy_chk": "string.h",
-    "__strtok_r": "string.h",
-    "memccpy": "string.h",
-    "memchr": "string.h",
-    "memcmp": "string.h",
-    "memcpy": "string.h",
-    "memmem": "string.h",
-    "memmove": "string.h",
-    "memrchr": "string.h",
-    "stpcpy": "string.h",
-    "stpncpy": "string.h",
-    "strcasestr": "string.h",
-    "strcat": "string.h",
-    "strchr": "string.h",
-    "strcmp": "string.h",
-    "strcoll": "string.h",
-    "strcoll_l": "string.h",
-    "strcpy": "string.h",
-    "strcspn": "string.h",
-    "strdup": "string.h",
-    "strerror": "string.h",
-    "strerror_l": "string.h",
-    "strlen": "string.h",
-    "strncat": "string.h",
-    "strncmp": "string.h",
-    "strncpy": "string.h",
-    "strndup": "string.h",
-    "strnlen": "string.h",
-    "strpbrk": "string.h",
-    "strrchr": "string.h",
-    "strsep": "string.h",
-    "strsignal": "string.h",
-    "strspn": "string.h",
-    "strstr": "string.h",
-    "strtok": "string.h",
-    "strtok_r": "string.h",
-    "strxfrm": "string.h",
-    "strxfrm_l": "string.h"
 }
 
 floating_point_instructions = ["MOVSS", "MOVSD", "ADDSS", "ADDSD", "SUBSS", "SUBSD", "MULSS", "MULSD",
@@ -290,7 +199,7 @@ class PostProcessor:
     def filter_funcs(self, funcs):
         filtered_funcs = []
         for f in funcs:
-            self.headers.add(definitions_from_libc.get(f.getName()))
+            self.headers.add(libc_definitions.get(f.getName()))
 
             if f.getName() in static_linked_funcs or f.isThunk():
                 continue

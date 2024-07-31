@@ -185,7 +185,8 @@ class CodeAnalyzer:
                     continue
 
                 if operation != "=":
-                    lines[id] = lines[id][:variable_id + 1] + f"*({types_sizes.get(size)}*)((const void*)&{variable} + {start})" + lines[id][size_id + 1:]
+                    lines[id] = lines[id][:variable_id + 1] +\
+                        f"*({types_sizes.get(size)}*)((const void*)&{variable} + {start})" + lines[id][size_id + 1:]
                     continue
 
                 rvalue, is_rvalue_building, rvalue_type, is_type_defined, rvalue_id =\

@@ -7,6 +7,7 @@ from src.CodeAnalyzer import CodeAnalyzer
 from src.TypeAnalyzer import TypeAnalyzer
 from src.TypeAnalyzer import integer_types
 from src.TypeAnalyzer import utypes
+from collections import deque
 
 pyhidra.start()
 from ghidra.app.decompiler import DecompInterface
@@ -306,17 +307,46 @@ class PostProcessor:
 
             filtered_funcs.append(f)
 
-        for f in filtered_funcs:
-            for function in f.getCalledFunctions(ConsoleTaskMonitor()):
-                if (("EXTERNAL" not in str(function)) and (
-                        function not in filtered_funcs)) or "__libc_start_main" in str(function):
-                    filtered_funcs.remove(f)
-                    break
+        main = self.find_main(filtered_funcs)
+        if main is None:
+            logger.error("Can't find main function")
+        main_call_tree = self.get_call_tree(main)
 
-        for f in filtered_funcs:
-            for function in f.getCallingFunctions(ConsoleTaskMonitor()):
-                if function not in filtered_funcs:
-                    f.setName("main", SourceType.USER_DEFINED)
-                    break
-
+        # filter funcs again by being in the main call tree
+        filtered_funcs = list(filter(lambda a: a in main_call_tree, filtered_funcs))
         return filtered_funcs
+
+    def get_call_tree(self, function):
+        monitor = self.flat_api.getMonitor()
+        call_tree = {function}
+        not_visited = deque([function])
+
+        while len(not_visited) > 0:
+            f = not_visited.pop()
+            for called_func in f.getCalledFunctions(monitor):
+                if called_func not in call_tree:
+                    not_visited.append(called_func)
+                    call_tree.add(called_func)
+        return call_tree
+
+    def find_main(self, funcs):
+        for f in funcs:
+            if f.getName() == "main":
+                return f
+
+        if not self.elfAnalyzer.is_stripped():
+            return None
+
+        monitor = self.flat_api.getMonitor()
+        listing = self.program.getListing()
+        text_section = self.program.getMemory().getBlock(".text")
+        text_start_address = text_section.getStart()
+
+        _start = listing.getFunctionAt(text_start_address)
+        _start_called_funcs = _start.getCalledFunctions(monitor)
+        main = None
+        for f in _start_called_funcs:
+            if f.getName() != "__libc_start_main":
+                main = f
+                main.setName("main", SourceType.USER_DEFINED)
+        return main

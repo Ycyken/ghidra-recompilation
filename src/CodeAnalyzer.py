@@ -1,3 +1,6 @@
+from src.TypeAnalyzer import utypes
+from src.TypeAnalyzer import integer_types
+
 stack_protectors = ["__stack_chk_fail", "___stack_chk_guard", "in_FS_OFFSET"]
 
 types_sizes = {
@@ -81,12 +84,18 @@ class CodeAnalyzer:
             if (line[rvalue_id].isalnum() or line[rvalue_id] == "_") and not is_type_defined:
                 rvalue_type += line[rvalue_id]
             elif rvalue_type != "" and not is_type_defined:
-                if line[rvalue_id] == "." and line[rvalue_id + 1] == "_":
+                if line[rvalue_id] == "." and self.types_of_variables.get(rvalue_type) == "undefined":
                     rvalue_type = "char_pointer"
                 elif self.types_of_variables.get(rvalue_type) != None:
                     rvalue_type = self.types_of_variables.get(rvalue_type)
                 elif "0x" in rvalue_type or rvalue_type.isdigit():
                     rvalue_type = types_sizes[size]
+
+                if utypes.get(rvalue_type) != None:
+                    rvalue_type = utypes.get(rvalue_type)
+                elif integer_types.get(rvalue_type) != None:
+                    rvalue_type = integer_types.get(rvalue_type)
+
                 self.transfer_types.add(rvalue_type)
                 is_type_defined = True
 

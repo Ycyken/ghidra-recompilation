@@ -441,7 +441,7 @@ libc_definitions = {
 
     "__builtin_offsetof": "stddef.h",
     "offsetof": "stddef.h",
-    
+
     "__compar_fn_t": "stdlib.h",
     "_Exit": "stdlib.h",
     "__ctype_get_mb_cur_max": "stdlib.h",

@@ -64,7 +64,7 @@ class CodeAnalyzer:
     def get_variable_and_id(self, line: str, id: int) -> {str, int}:
         variable = ""
 
-        while line[id].isalnum() or line[id] == "_":
+        while line[id].isalnum() or line[id] == "_" or line[id] == ".":
             variable = line[id] + variable
             id -= 1
 
@@ -120,12 +120,20 @@ class CodeAnalyzer:
         line += f"{start}, {size})" + end_line[rvalue_id:]
 
         return line
+    
+    def get_operation(self, line:str, id: int) -> {str, bool}:
+        for i in range(id, len(line)):
+            operation = line[i].strip()
+            if operation != "":
+                return operation, True
+        return "", False
 
     def get_correct_code(self) -> str:
         warning_in_load = False
         warning_in_store = False
         need_to_delete_brace = False
         is_rvalue_building = False
+        is_operation_defined = True
 
         self.types_of_variables = self.get_variables_types_from_signature()
 
@@ -154,8 +162,18 @@ class CodeAnalyzer:
             elif "._" in lines[id]:
                 dot_id = lines[id].find("._")
                 variable, variable_id = self.get_variable_and_id(lines[id], dot_id - 1)
+                if self.types_of_variables.get(variable) == None:
+                    continue
                 start, start_id = self.get_variable_attribute_and_id(lines[id], dot_id + 2)
                 size, size_id = self.get_variable_attribute_and_id(lines[id], start_id + 1)
+
+                operation, is_operation_defined = self.get_operation(lines[id], size_id + 1)
+                if not is_operation_defined:
+                    continue
+
+                if operation != "=":
+                    lines[id] = lines[id][:variable_id + 1] + f"*({types_sizes.get(size)}*)((const void*)&{variable} + {start})" + lines[id][size_id + 1:]
+                    continue
 
                 rvalue, is_rvalue_building, rvalue_type, is_type_defined, rvalue_id = self.get_rvalue_and_type("", True, "", False, lines[id], size, size_id + 1)
                 if not is_rvalue_building:

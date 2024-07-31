@@ -338,15 +338,19 @@ class PostProcessor:
             return None
 
         monitor = self.flat_api.getMonitor()
-        listing = self.program.getListing()
-        text_section = self.program.getMemory().getBlock(".text")
-        text_start_address = text_section.getStart()
+        _start = None
+        for f in self.program.functionManager.getFunctionsNoStubs(True):
+            if f.getName() == "entry":
+                _start = f
+                break
+        if _start is None:
+            return None
 
-        _start = listing.getFunctionAt(text_start_address)
         _start_called_funcs = _start.getCalledFunctions(monitor)
         main = None
         for f in _start_called_funcs:
             if f.getName() != "__libc_start_main":
                 main = f
                 main.setName("main", SourceType.USER_DEFINED)
+                break
         return main

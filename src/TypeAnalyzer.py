@@ -99,6 +99,7 @@ class TypeAnalyzer:
                 value = int(str(value), 16)
             elif data_type == "char" and isinstance(value, str):
                 value = "\'" + value + "\'"
+
         if value is None:
             return data_type, value
         return data_type, str(value).lower()

@@ -2,6 +2,7 @@
 .idea
 *_ghidra
 tests/**/*_ghidra
+tests/binaries/**.c
 
 venv
 .venv

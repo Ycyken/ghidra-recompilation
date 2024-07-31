@@ -1,6 +1,7 @@
 import logging
 
 from elftools.elf.elffile import ELFFile
+import os
 
 
 class ElfAnalyzer:
@@ -32,3 +33,10 @@ class ElfAnalyzer:
     def is_function_inside_section(self, func_address: int, image_base: int, section_name: str) -> bool:
         start_address, end_address = tuple(map(lambda x: x + image_base, self.get_section_addresses(section_name)))
         return start_address <= func_address < end_address
+
+    def is_stripped(self) -> bool:
+        file_description = os.popen(f"file {self.elfpath}", "r").readline()
+        if "not stripped" in file_description:
+            return False
+        else:
+            return True

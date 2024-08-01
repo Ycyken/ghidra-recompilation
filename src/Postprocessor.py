@@ -7,7 +7,7 @@ from src.CodeAnalyzer import CodeAnalyzer
 from src.TypeAnalyzer import TypeAnalyzer
 from src.TypeAnalyzer import integer_types
 from src.TypeAnalyzer import utypes
-from src.resources.LibcDefinitions import libc_definitions
+from src.resources.LibcFunctions import libc_functions
 from collections import deque
 
 pyhidra.start()
@@ -31,7 +31,7 @@ libc = {"assert.h", "ctype.h", "complex.h", "errno.h", "fenv.h", "float.h", "int
         "stdbool.h", "stdint.h", "stddef.h", "stdio.h", "stdlib.h", "string.h", "tgmath.h",
         "threads.h", "time.h", "wchar.h", "wctype.h"}
 
-types_from_libc = {
+libc_types = {
     "bool": "stdbool.h",
     "complex8": "complex.h",
     "complex16": "complex.h",
@@ -46,12 +46,6 @@ types_from_libc = {
     "fexcept_t": "fenv.h",
 }
 
-floating_point_instructions = ["MOVSS", "MOVSD", "ADDSS", "ADDSD", "SUBSS", "SUBSD", "MULSS", "MULSD",
-                               "DIVSS", "DIVSD", "MINSS", "MINSD", "MAXSS", "MAXSD", "SQRTSS", "SQRTSD",
-                               "RCPSS", "RCPSD", "RSQRTSS", "RSQRTSD", "CMPSS", "CMPSD", "CMPEQSS", "CMPEQSD",
-                               "CMPLTSS", "CMPLTSD", "CMPLESS", "CMPLESD", "CMPNESS", "CMPNESD", "CMPUNORDSS",
-                               "CMPUNORDSD", "CMPNLTSS", "CMPNLTSD", "CMPNLESS", "CMPNLESD", "CMPORDSS", "CMPORDSD"]
-
 
 class PostProcessor:
     def __init__(self, filepath: str):
@@ -65,7 +59,7 @@ class PostProcessor:
             self.flat_api = flat_api
             self.program = program
             # stdbool temporary included by default cause types detection in global variables not yet implemented
-            self.headers = {"stdbool.h"}
+            self.headers: set[str] = {"stdbool.h"}
 
             funcs = program.functionManager.getFunctionsNoStubs(True)
             filtered_funcs = self.filter_funcs(funcs)
@@ -143,12 +137,12 @@ class PostProcessor:
         return symbols_in_section
 
     def detect_datatype_header_dependency(self, data_type: str):
-        header = libc_definitions.get(data_type)
+        header = libc_types.get(data_type)
         if header is not None:
             self.headers.add(header)
 
     def detect_function_header_dependency(self, function_name: str):
-        header = types_from_libc.get(function_name)
+        header = libc_functions.get(function_name)
         if header is not None:
             self.headers.add(header)
 
@@ -179,8 +173,6 @@ class PostProcessor:
         self.add_headers_from_functions(decompiled_funcs)
 
         for header in self.headers:
-            if header is None:
-                continue
             file.write(f"#include <{header}>\n")
         file.write("\n")
 

@@ -65,7 +65,7 @@ class CodeAnalyzer:
     def get_variable_and_id(self, line: str, id: int) -> {str, int}:
         variable = ""
 
-        while line[id].isalnum() or line[id] == "_" or line[id] == ".":
+        while line[id].isalnum() or line[id] == "_" or line[id] == "." or line[id] == "'":
             variable = line[id] + variable
             id -= 1
 
@@ -83,7 +83,7 @@ class CodeAnalyzer:
     def get_rvalue_and_type(self, rvalue: str, is_rvalue_building: bool, rvalue_type: str,
                             is_type_defined: bool, line: str, size: str, id: int) -> {str, bool, str, bool, int}:
         for rvalue_id in range(id, len(line)):
-            if (line[rvalue_id].isalnum() or line[rvalue_id] == "_") and not is_type_defined:
+            if (line[rvalue_id].isalnum() or line[rvalue_id] == "_" or line[rvalue_id] == "'") and not is_type_defined:
                 rvalue_type += line[rvalue_id]
             elif rvalue_type != "" and not is_type_defined:
                 if line[rvalue_id] == "." and self.types_of_variables.get(rvalue_type) == "undefined":
@@ -92,6 +92,8 @@ class CodeAnalyzer:
                     rvalue_type = self.types_of_variables.get(rvalue_type)
                 elif "0x" in rvalue_type or rvalue_type.isdigit():
                     rvalue_type = types_sizes[size]
+                elif "'" in rvalue_type:
+                    rvalue_type = "char"
 
                 if utypes.get(rvalue_type) is not None:
                     rvalue_type = utypes.get(rvalue_type)

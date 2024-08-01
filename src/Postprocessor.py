@@ -16,6 +16,8 @@ from ghidra.app.decompiler import DecompileOptions
 from ghidra.util.task import ConsoleTaskMonitor
 from ghidra.program.model.address import AddressRangeImpl
 from ghidra.program.model.symbol import SourceType
+from ghidra.program.model.data import DataTypeWriter
+from java.io import StringWriter
 
 logger = logging.getLogger(__name__)
 
@@ -62,16 +64,35 @@ class PostProcessor:
             self.typeAnalyzer = TypeAnalyzer(flat_api)
             self.flat_api = flat_api
             self.program = program
-            self.headers = set()
+            # stdbool temporary included by default cause types detection in global variables not yet implemented
+            self.headers = {"stdbool.h"}
 
             funcs = program.functionManager.getFunctionsNoStubs(True)
             filtered_funcs = self.filter_funcs(funcs)
             decompiled_funcs = self.get_decompiled_funcs(filtered_funcs)
             with open(self.filepath + ".c", "w") as file:
                 self.write_headers(file, decompiled_funcs)
+                self.write_typedefs_and_structs(file)
                 self.write_global_variables(file)
                 self.write_funcs(file, filtered_funcs, decompiled_funcs)
         shutil.rmtree(self.filepath + "_ghidra")
+
+    def write_typedefs_and_structs(self, file):
+        data_type_manager = self.program.getDataTypeManager()
+        string_writer = StringWriter()
+        data_types = []
+        for data_type in data_type_manager.getAllDataTypes():
+            data_name = data_type.getName()
+            category_path_name = data_type.getCategoryPath().getName()
+            # if data type is not elf-gnu specific and not from headers
+            if ("ELF" not in category_path_name and category_path_name not in self.headers
+                    and not data_name.startswith("_")):
+                data_types.append(data_type)
+
+        data_type_writer = DataTypeWriter(data_type_manager, string_writer)
+        data_type_writer.write(data_types, self.flat_api.getMonitor())
+        content = string_writer.toString()
+        file.write(content)
 
     def write_global_variables(self, file):
         sections = (".bss", ".data", ".rodata")
@@ -121,6 +142,16 @@ class PostProcessor:
                 symbols_in_section.append(symbol_table.getSymbols(addr)[0])
         return symbols_in_section
 
+    def detect_datatype_header_dependency(self, data_type: str):
+        header = libc_definitions.get(data_type)
+        if header is not None:
+            self.headers.add(header)
+
+    def detect_function_header_dependency(self, function_name: str):
+        header = types_from_libc.get(function_name)
+        if header is not None:
+            self.headers.add(header)
+
     def add_headers_from_ghidra(self):
         data_type_manager = self.program.getDataTypeManager()
         for categoryID in range(data_type_manager.getCategoryCount()):
@@ -141,9 +172,7 @@ class PostProcessor:
                 if len(declaration) != 2:
                     continue
                 data_type = declaration[0]
-                header = types_from_libc.get(data_type)
-                if header is not None:
-                    self.headers.add(header)
+                self.detect_datatype_header_dependency(data_type)
 
     def write_headers(self, file, decompiled_funcs):
         self.add_headers_from_ghidra()
@@ -199,7 +228,7 @@ class PostProcessor:
     def filter_funcs(self, funcs):
         filtered_funcs = []
         for f in funcs:
-            self.headers.add(libc_definitions.get(f.getName()))
+            self.detect_function_header_dependency(f.getName())
 
             if f.getName() in static_linked_funcs or f.isThunk():
                 continue

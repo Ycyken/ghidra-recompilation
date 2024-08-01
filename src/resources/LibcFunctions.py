@@ -1,4 +1,4 @@
-libc_definitions = {
+libc_functions = {
     "__ctype_b_loc": "ctype.h",
     "__ctype_tolower_loc": "ctype.h",
     "__ctype_toupper_loc": "ctype.h",

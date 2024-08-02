@@ -17,8 +17,8 @@ class CodeAnalyzer:
     def __init__(self, signature: str, func_code: str):
         self.func_code = func_code
         self.signature = signature
-        self.types_of_variables: Dict[str, str]
-        self.transfer_types: set[str]
+        self.types_of_variables: Dict[str, str] = {}
+        self.transfer_types: set[str] = set()
 
     def get_transfer_types(self):
         return self.transfer_types

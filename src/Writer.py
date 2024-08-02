@@ -1,4 +1,4 @@
-#This class writes special functions for passing bytes
+# This class writes special functions for passing bytes
 class Writer:
     def __init__(self, file):
         self.file = file

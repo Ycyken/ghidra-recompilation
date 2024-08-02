@@ -66,11 +66,13 @@ class PostProcessor:
             funcs = program.functionManager.getFunctionsNoStubs(True)
             filtered_funcs = self.filter_funcs(funcs)
             decompiled_funcs = self.get_decompiled_funcs(filtered_funcs)
+            # in this part we do standart postprocessor actions: write data that Ghidra doesn't provide
             with open(self.filepath + ".c", "w") as file:
                 self.write_headers(file, decompiled_funcs)
                 self.write_typedefs_and_structs(file)
                 self.write_global_variables(file)
                 self.write_funcs(file, filtered_funcs, decompiled_funcs)
+        # remove folder wherein Ghidra works on project
         shutil.rmtree(self.filepath + "_ghidra")
 
     def write_typedefs_and_structs(self, file):
@@ -138,16 +140,23 @@ class PostProcessor:
                 symbols_in_section.append(symbol_table.getSymbols(addr)[0])
         return symbols_in_section
 
+    # add names of header files corresponding to all
+    # data types that used in functions to headers dictionary
+    # (sometimes Ghidra doesn't correct detect all data types
+    # so in this case we need "add_headers_from_functions")
     def detect_datatype_header_dependency(self, data_type: str):
         header = libc_types.get(data_type)
         if header is not None:
             self.headers.add(header)
 
+    # add names of header files corresponding to all external
+    # functions that calls in program to headers dictionary
     def detect_function_header_dependency(self, function_name: str):
         header = libc_functions.get(function_name)
         if header is not None:
             self.headers.add(header)
 
+    # add all header files that Ghidra provides to dictionary
     def add_headers_from_ghidra(self):
         data_type_manager = self.program.getDataTypeManager()
         for categoryID in range(data_type_manager.getCategoryCount()):
@@ -158,6 +167,8 @@ class PostProcessor:
             if header in libc:
                 self.headers.add(header)
 
+    # add all header files corresponding to all data types that
+    # used in functions
     def add_headers_from_functions(self, decompiled_funcs):
         for func in decompiled_funcs:
             func_code = func.getC()
@@ -178,6 +189,7 @@ class PostProcessor:
             file.write(f"#include <{header}>\n")
         file.write("\n")
 
+    #write functions with replacement ("uint -> unsigned int", for example)
     def write_funcs(self, file, funcs, decompiled_funcs):
         for index, func in enumerate(decompiled_funcs):
             if funcs[index].getName() == "main":
@@ -190,6 +202,8 @@ class PostProcessor:
             func_signature = func_signature.replace(".", "_")
             file.write(func_signature + "\n")
 
+        # in this part we detect Ghidra warnings, appeals by dots or stack protector
+        # then fix all of problems
         for func in decompiled_funcs:
             func_code = func.getC()
             if "WARNING:" in func_code or "._" in func_code:
@@ -211,6 +225,7 @@ class PostProcessor:
                 func_code = func_code.replace(key, utypes[key])
             file.write(func_code)
 
+    # decompiles functions and get corresponding code in C
     def get_decompiled_funcs(self, funcs):
         ifc = DecompInterface()
         options = DecompileOptions()
@@ -228,6 +243,8 @@ class PostProcessor:
             funcs_decompiled.append(func_decompiled)
         return funcs_decompiled
 
+    # detects if function is non-user. Thunk functions, functions outside
+    # of .text section or functions with problems in assembly are non-user
     def filter_funcs(self, funcs):
         filtered_funcs = []
         for f in funcs:
@@ -257,6 +274,7 @@ class PostProcessor:
         filtered_funcs = list(filter(lambda a: a in main_call_tree, filtered_funcs))
         return filtered_funcs
 
+    # gets all functions which this function calls and by bfs builds call tree
     def get_call_tree(self, function):
         monitor = self.flat_api.getMonitor()
         call_tree = {function}
@@ -270,6 +288,9 @@ class PostProcessor:
                     call_tree.add(called_func)
         return call_tree
 
+    # in stripped files we doesn't know what function is main
+    # so we detect it with by building a call graph of
+    # functions in program
     def find_main(self, funcs):
         for f in funcs:
             if f.getName() == "main":

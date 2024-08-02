@@ -23,4 +23,4 @@ jobs:
 
       - name: Linting with mypy
         run: |
-          mypy --check-untyped-defs --ignore-missing-imports .
+          mypy --check-untyped-defs .

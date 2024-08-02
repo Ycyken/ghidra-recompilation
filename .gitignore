@@ -6,3 +6,6 @@ tests/binaries/**.c
 
 venv
 .venv
+
+mypy
+.ini

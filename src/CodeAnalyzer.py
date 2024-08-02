@@ -1,5 +1,6 @@
 from src.TypeAnalyzer import utypes
 from src.TypeAnalyzer import integer_types
+from typing import Dict
 
 stack_protectors = ["__stack_chk_fail", "___stack_chk_guard", "in_FS_OFFSET"]
 
@@ -15,7 +16,7 @@ class CodeAnalyzer:
     def __init__(self, signature: str, func_code: str):
         self.func_code = func_code
         self.signature = signature
-        self.types_of_variables = {}
+        self.types_of_variables: Dict[str, str]
         self.transfer_types = set()
 
     def get_transfer_types(self):

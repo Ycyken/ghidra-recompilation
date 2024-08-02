@@ -194,7 +194,7 @@ class CodeAnalyzer:
                 for i in range(id_start + 1, id + 1):
                     lines[i] = ""
 
-            # if incorrect appeal by dot in this line, we start to build data: name of variable, 
+            # if incorrect appeal by dot in this line, we start to build data: name of variable,
             # offset(or start), size, rvalue if there is assignment and replace it by transfer
             # function or cast to *(type*)
             elif "._" in lines[id]:
@@ -225,7 +225,7 @@ class CodeAnalyzer:
                 continue
 
             # Ghidra marks inaccurate casts with these warnings, so we need to fix
-            # it if the next line is code in C or collect warnings if 
+            # it if the next line is code in C or collect warnings if there isn't
             if "WARNING: Load size is inaccurate" in lines[id]:
                 warning_in_load = True
                 continue

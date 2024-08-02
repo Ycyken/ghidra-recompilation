@@ -1,6 +1,7 @@
 from src.TypeAnalyzer import utypes
 from src.TypeAnalyzer import integer_types
 from typing import Dict
+from typing import Tuple
 
 stack_protectors = ["__stack_chk_fail", "___stack_chk_guard", "in_FS_OFFSET"]
 
@@ -17,7 +18,7 @@ class CodeAnalyzer:
         self.func_code = func_code
         self.signature = signature
         self.types_of_variables: Dict[str, str]
-        self.transfer_types = set()
+        self.transfer_types: set[str]
 
     def get_transfer_types(self):
         return self.transfer_types
@@ -63,7 +64,7 @@ class CodeAnalyzer:
                 line = lvalue[0] + f"({self.types_of_variables[variable]} *)" + lvalue[1:] + " = " + rvalue
         return line
 
-    def get_variable_and_id(self, line: str, id: int) -> {str, int}:
+    def get_variable_and_id(self, line: str, id: int) -> Tuple[str, int]:
         variable = ""
 
         while line[id].isalnum() or line[id] == "_" or line[id] == "." or line[id] == "'":
@@ -72,7 +73,7 @@ class CodeAnalyzer:
 
         return variable, id
 
-    def get_variable_attribute_and_id(self, line: str, id: int) -> {str, int}:
+    def get_variable_attribute_and_id(self, line: str, id: int) -> Tuple[str, int]:
         attribute = ""
 
         while line[id].isdigit():
@@ -82,7 +83,7 @@ class CodeAnalyzer:
         return attribute, id
 
     def get_rvalue_and_type(self, rvalue: str, is_rvalue_building: bool, rvalue_type: str,
-                            is_type_defined: bool, line: str, size: str, id: int) -> {str, bool, str, bool, int}:
+                            is_type_defined: bool, line: str, size: str, id: int) -> Tuple[str, bool, str, bool, int]:
         for rvalue_id in range(id, len(line)):
             if (line[rvalue_id].isalnum() or line[rvalue_id] == "_" or line[rvalue_id] == "'") and not is_type_defined:
                 rvalue_type += line[rvalue_id]
@@ -90,16 +91,16 @@ class CodeAnalyzer:
                 if line[rvalue_id] == "." and self.types_of_variables.get(rvalue_type) == "undefined":
                     rvalue_type = "char_pointer"
                 elif self.types_of_variables.get(rvalue_type) is not None:
-                    rvalue_type = self.types_of_variables.get(rvalue_type)
+                    rvalue_type = str(self.types_of_variables.get(rvalue_type))
                 elif "0x" in rvalue_type or rvalue_type.isdigit():
                     rvalue_type = types_sizes[size]
                 elif "'" in rvalue_type:
                     rvalue_type = "char"
 
                 if utypes.get(rvalue_type) is not None:
-                    rvalue_type = utypes.get(rvalue_type)
+                    rvalue_type = str(utypes.get(rvalue_type))
                 elif integer_types.get(rvalue_type) is not None:
-                    rvalue_type = integer_types.get(rvalue_type)
+                    rvalue_type = str(integer_types.get(rvalue_type))
 
                 self.transfer_types.add(rvalue_type)
                 is_type_defined = True
@@ -127,7 +128,7 @@ class CodeAnalyzer:
 
         return line
 
-    def get_operation(self, line: str, id: int) -> {str, bool}:
+    def get_operation(self, line: str, id: int) -> Tuple[str, bool]:
         for i in range(id, len(line)):
             operation = line[i].strip()
             if operation != "":

@@ -189,7 +189,7 @@ class PostProcessor:
             file.write(f"#include <{header}>\n")
         file.write("\n")
 
-    #write functions with replacement ("uint -> unsigned int", for example)
+    # write functions with replacement ("uint -> unsigned int", for example)
     def write_funcs(self, file, funcs, decompiled_funcs):
         for index, func in enumerate(decompiled_funcs):
             if funcs[index].getName() == "main":

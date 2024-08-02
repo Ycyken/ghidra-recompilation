@@ -24,7 +24,7 @@ class ElfAnalyzer:
     def close_elf(self):
         self.elf.close()
 
-    #get addresses of sections in binary file, for example .bss, .rodata etc.
+    # get addresses of sections in binary file, for example .bss, .rodata etc.
     def get_section_addresses(self, section_name: str) -> tuple[int, int]:
         section = self.elf.get_section_by_name(section_name)
         start_address = int(section['sh_addr'])
@@ -35,7 +35,7 @@ class ElfAnalyzer:
         start_address, end_address = tuple(map(lambda x: x + image_base, self.get_section_addresses(section_name)))
         return start_address <= func_address < end_address
 
-    #stripped files - files without debugging information
+    # stripped files - files without debugging information
     def is_stripped(self) -> bool:
         file_description = os.popen(f"file {self.elfpath}", "r").readline()
         if "not stripped" in file_description:

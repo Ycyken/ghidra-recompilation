@@ -11,7 +11,7 @@ types_sizes = {
 }
 
 
-#This class analyzes code in C
+# This class analyzes code in C
 class CodeAnalyzer:
     def __init__(self, signature: str, func_code: str):
         self.func_code = func_code
@@ -22,7 +22,7 @@ class CodeAnalyzer:
     def get_transfer_types(self):
         return self.transfer_types
 
-    #returns variable name without unnecessary symbols
+    # returns variable name without unnecessary symbols
     def get_variable_name(self, variable: str) -> str:
         if "*" in variable:
             variable = variable[variable.rfind("*") + 1:]
@@ -36,7 +36,7 @@ class CodeAnalyzer:
 
     def get_variables_types_from_signature(self) -> dict:
         for argument in self.signature[self.signature.find("(") + 1:self.signature.find(")")].split(","):
-            #if function doesn't have arguments, Ghidra writes "void" or "..." in braces
+            # if function doesn't have arguments, Ghidra writes "void" or "..." in braces
             if argument == "void" or argument == "...":
                 break
             type, variable = argument.split()
@@ -45,7 +45,7 @@ class CodeAnalyzer:
         return self.types_of_variables
 
     def get_line_without_warnings(self, line: str, warning_in_load: bool, warning_in_store: bool) -> str:
-        #Ghidra marks inaccurate casts with warnings
+        # Ghidra marks inaccurate casts with warnings
         if " = " not in line:
             return line
         lvalue, rvalue = line.split(" = ")
@@ -66,8 +66,8 @@ class CodeAnalyzer:
             line += " = " + rvalue
         return line
 
-    #return name of variable participating in appeal by dot and id of it's
-    #start in corresponding line
+    # return name of variable participating in appeal by dot and id of it's
+    # start in corresponding line
     def get_variable_and_id(self, line: str, id: int) -> {str, int}:
         variable = ""
 
@@ -77,8 +77,8 @@ class CodeAnalyzer:
 
         return variable, id
 
-    #attributes of variables - offset(or start) from addres of variable and size
-    #of data type that we need to store. This function returns one of them
+    # attributes of variables - offset(or start) from addres of variable and size
+    # of data type that we need to store. This function returns one of them
     def get_variable_attribute_and_id(self, line: str, id: int) -> {str, int}:
         attribute = ""
 
@@ -88,10 +88,10 @@ class CodeAnalyzer:
 
         return attribute, id
 
-    #if assignment is in line, we need to detect type and name of variable of rvalue
-    #this functions returns them, but in some cases rvalue can be in the other line
-    #unlike lvalue, so we need is_rvalue_building and is_type_defined to detect is
-    #each of them defined
+    # if assignment is in line, we need to detect type and name of variable of rvalue
+    # this functions returns them, but in some cases rvalue can be in the other line
+    # unlike lvalue, so we need is_rvalue_building and is_type_defined to detect is
+    # each of them defined
     def get_rvalue_and_type(self, rvalue: str, is_rvalue_building: bool, rvalue_type: str,
                             is_type_defined: bool, line: str, size: str, id: int) -> {str, bool, str, bool, int}:
         for rvalue_id in range(id, len(line)):
@@ -123,8 +123,8 @@ class CodeAnalyzer:
 
         return rvalue, is_rvalue_building, rvalue_type, is_type_defined, rvalue_id
 
-    #returns line without incorrect appeals by dots (auVar52._0_8_ for example), replaces it by
-    #function that transfer bytes from variable to destination address
+    # returns line without incorrect appeals by dots (auVar52._0_8_ for example), replaces it by
+    # function that transfer bytes from variable to destination address
     def get_line_without_dots(self, start_line: str, end_line: str, variable: str, variable_id: int,
                               start: str, size: str, rvalue: str, rvalue_type: str, rvalue_id: int) -> str:
         line = start_line[:variable_id + 1] + f"transfer_value_from_{rvalue_type.replace(" ", "_")}("
@@ -140,8 +140,8 @@ class CodeAnalyzer:
 
         return line
 
-    #this first returns first non-space symbol after variable with appeal by dot
-    #this symbol must be operation or ";" if it was end of line
+    # this first returns first non-space symbol after variable with appeal by dot
+    # this symbol must be operation or ";" if it was end of line
     def get_operation(self, line: str, id: int) -> {str, bool}:
         for i in range(id, len(line)):
             operation = line[i].strip()
@@ -149,8 +149,8 @@ class CodeAnalyzer:
                 return operation, True
         return "", False
 
-    #this functions returns code without warnings, stack protectors and appeals by dots
-    #(auVar52._0_8_ for example)
+    # this functions returns code without warnings, stack protectors and appeals by dots
+    # (auVar52._0_8_ for example)
     def get_correct_code(self) -> str:
         warning_in_load = False
         warning_in_store = False
@@ -173,7 +173,7 @@ class CodeAnalyzer:
             lineID += 1
         lineID += 1
 
-        #this part gets all local variables and their types from function
+        # this part gets all local variables and their types from function
         line = lines[lineID][:lines[lineID].find(" [")].split()
         while len(line) == 2 and line[0] not in ["return", "do"]:
             type, variable = line[0], self.get_variable_name(line[1])
@@ -182,7 +182,7 @@ class CodeAnalyzer:
             line = lines[lineID][:lines[lineID].find(" [")].split()
 
         for id in range(lineID, len(lines)):
-            #if rvalue starts building on the previous iteration, it continues on this line
+            # if rvalue starts building on the previous iteration, it continues on this line
             if is_rvalue_building:
                 rvalue, is_rvalue_building, rvalue_type, is_type_defined, rvalue_id =\
                     self.get_rvalue_and_type(rvalue, is_rvalue_building, rvalue_type, is_type_defined, lines[id], size,
@@ -194,9 +194,9 @@ class CodeAnalyzer:
                 for i in range(id_start + 1, id + 1):
                     lines[i] = ""
 
-            #if incorrect appeal by dot in this line, we start to build data: name of variable, 
-            #offset(or start), size, rvalue if there is assignment and replace it by transfer
-            #function or cast to *(type*)
+            # if incorrect appeal by dot in this line, we start to build data: name of variable, 
+            # offset(or start), size, rvalue if there is assignment and replace it by transfer
+            # function or cast to *(type*)
             elif "._" in lines[id]:
                 dot_id = lines[id].find("._")
                 variable, variable_id = self.get_variable_and_id(lines[id], dot_id - 1)
@@ -224,8 +224,8 @@ class CodeAnalyzer:
 
                 continue
 
-            #Ghidra marks inaccurate casts with these warnings, so we need to fix
-            #it if the next line is code in C or collect warnings if 
+            # Ghidra marks inaccurate casts with these warnings, so we need to fix
+            # it if the next line is code in C or collect warnings if 
             if "WARNING: Load size is inaccurate" in lines[id]:
                 warning_in_load = True
                 continue
@@ -239,8 +239,8 @@ class CodeAnalyzer:
                 warning_in_load, warning_in_store = False, False
                 continue
 
-            #this part of code removes stack protector variables by deleting lines with them
-            #but if there was "{" in line, we also need to delete relevant "}" in one of next lines
+            # this part of code removes stack protector variables by deleting lines with them
+            # but if there was "{" in line, we also need to delete relevant "}" in one of next lines
             elif "}" in lines[id] and need_to_delete_brace:
                 lines[id] = ""
                 need_to_delete_brace = False

@@ -6,9 +6,12 @@ class AssemblyAnalyzer:
 
     def is_function_nonuser(self):
         for code_unit in self.code_units:
+            #HLT halts CPU so this instruction can't be in user functions
             if code_unit.getMnemonicString() == "HLT":
                 return True
 
+            #This part of code checks for jumps outside of functions
+            #user functions can't jump out of themselves
             if code_unit.getMnemonicString() != "JMP":
                 continue
 

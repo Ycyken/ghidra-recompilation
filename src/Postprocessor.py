@@ -126,6 +126,10 @@ class PostProcessor:
                 correct_name += "_"
         return correct_name
 
+    # function can run for a very long time because it's going through
+    # all the addresses in the memory block, which can be very large
+    # (address range can formally cover a large empty range).
+    # Need to be optimized
     def get_symbols_from_section(self, section_name: str):
         block = self.program.getMemory().getBlock(section_name)
         start_addr = block.getStart()

@@ -11,6 +11,12 @@ code and also analyses the binary file so that you can recompile it.
 - Python 3.12+
 - Ghidra 11.1.2+
 
+### Creating venv
+
+```bash
+python3 -m venv .venvname
+source .venvname/bin/activate
+```
 ### Installation
 
 1. From the root directory of the repository, if you are using pip:
@@ -43,4 +49,9 @@ python3 -m pip install -r requirements-dev.txt
 
 ```bash
 pre-commit install
+```
+
+### Run tests
+```bash
+pytest tests -v
 ```
